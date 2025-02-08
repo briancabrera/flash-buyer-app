@@ -4,8 +4,8 @@ import styles from "./Header.module.scss"
 
 const Header: React.FC = () => {
   return (
-    <IonHeader>
-      <IonToolbar color="primary" className={styles.header}>
+    <IonHeader className={styles.header}>
+      <IonToolbar>
         <IonButtons slot="start">
           <IonMenuButton />
         </IonButtons>
