@@ -5,12 +5,14 @@ import { Redirect, Route } from "react-router-dom"
 import Home from "./pages/Home/Home"
 import ChargePayment from "./pages/ChargePayment/ChargePayment"
 import ConfirmPayment from "./pages/ConfirmPayment/ConfirmPayment"
+import FloatingLightningBolts from "./components/FloatingLightningBolts/FloatingLightningBolts"
 
-setupIonicReact()
+setupIonicReact();
 
 const App: React.FC = () => {
   return (
     <IonApp>
+      <FloatingLightningBolts />
       <IonReactRouter>
         <IonRouterOutlet>
           <Route exact path="/home">

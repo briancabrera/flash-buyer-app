@@ -21,7 +21,6 @@ const Home: React.FC = () => {
           <IonButton expand="block" size="large" onClick={handleChargePayment} className={styles.chargeButton}>
             Cargar Pago
           </IonButton>
-          {/* Aquí irá el componente de historial de transacciones recientes */}
         </div>
       </IonContent>
     </IonPage>

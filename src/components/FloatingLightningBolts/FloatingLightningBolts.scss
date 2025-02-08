@@ -1,0 +1,16 @@
+.floating-bolts {
+  background: #3880ff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bolt {
+  position: absolute;
+  color: rgba(255, 255, 0, 0.6); // Adjust the color and opacity here if needed
+}
