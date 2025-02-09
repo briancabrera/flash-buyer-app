@@ -13,6 +13,10 @@ const Home: React.FC = () => {
     history.push("/charge")
   }
 
+  const handleViewTransactions = () => {
+    history.push("/transactions")
+  }
+
   return (
     <IonPage>
       <Header />
@@ -20,6 +24,9 @@ const Home: React.FC = () => {
         <div className={styles.container}>
           <IonButton expand="block" size="large" onClick={handleChargePayment} className={styles.chargeButton}>
             Cargar Pago
+          </IonButton>
+          <IonButton expand="block" size="large" onClick={handleViewTransactions} className={styles.chargeButton}>
+            Transacciones
           </IonButton>
         </div>
       </IonContent>

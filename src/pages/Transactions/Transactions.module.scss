@@ -1,0 +1,185 @@
+.header {
+    ion-toolbar {
+      --border-width: 0 !important;
+      --border-color: transparent !important;
+      --background: #3880ff;
+      --padding-top: 1rem;
+      --padding-end: 1rem;
+      
+      ion-title {
+        color: #ffffff;
+        padding: 0;
+      }
+  
+      ion-buttons {
+        margin-left: 20px;
+  
+        &[slot="end"] {
+          margin-right: 20px;
+          margin-left: 0;
+        }
+      }
+    }
+  
+    .backButton,
+    .filterButton {
+      --background: transparent;
+      --box-shadow: none;
+      margin: 0;
+      padding: 0;
+      
+      .backIcon,
+      .filterIcon {
+        font-size: 24px;
+        color: white;
+      }
+    }
+  }
+  
+  .transactionsPage {
+    --background: transparent;
+    --padding-top: 20px;
+  }
+  
+  .pageContent {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    padding: 0 20px;
+    margin: 0 20px;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .pageTitle {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  
+  .filters {
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  
+    .filterItem {
+      --background: transparent;
+      --border-color: rgba(255, 255, 255, 0.2);
+      --border-radius: 8px;
+      --padding-start: 0;
+      --inner-padding-end: 0;
+      margin-bottom: 12px;
+  
+      &:last-child {
+        margin-bottom: 0;
+      }
+  
+      ion-label {
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 4px;
+      }
+    }
+  
+    .filterInput {
+      --background: rgba(255, 255, 255, 0.1);
+      --color: #ffffff;
+      --padding-start: 12px;
+      --padding-end: 12px;
+      --placeholder-color: rgba(255, 255, 255, 0.5);
+      --border-radius: 8px;
+    }
+  
+    .timeFilters {
+      display: flex;
+      gap: 12px;
+  
+      .filterItem {
+        flex: 1;
+      }
+    }
+  }
+  
+  .transactionsList {
+    &:last-child {
+      margin-bottom: 20px;
+    }
+  }
+  
+  .transactionCard {
+    background: #ffffff;
+    border-radius: 12px;
+    margin: 0 0 10px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+    &:last-child {
+      margin-bottom: 10px;
+    }
+  }
+  
+  .transactionContent {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .transactionInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .amount {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+  
+  .status {
+    font-size: 14px;
+    font-weight: 500;
+  
+    &.rejected {
+      color: #ef4444;
+    }
+  
+    &.pending {
+      color: #f59e0b;
+    }
+  
+    &.completed {
+      color: #10b981;
+    }
+  }
+  
+  .time {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .transactionId {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .chevron {
+    font-size: 20px;
+    color: #6b7280;
+    flex-shrink: 0;
+  }
+  
+  

@@ -7,12 +7,18 @@
   padding: 20px;
 }
 
-.chargeButton {
+.chargeButton,
+.transactionsButton {
   font-size: 1.2em;
   height: 60px;
   width: 80%;
   max-width: 300px;
   --background: rgba(255, 255, 255, 0.9);
   --color: var(--ion-color-primary);
+  margin-bottom: 20px;
+}
+
+.transactionsButton {
+  --background: rgba(255, 255, 255, 0.7);
 }
 
