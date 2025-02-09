@@ -126,8 +126,6 @@ const Transactions: React.FC = () => {
     })
   }, [filters])
 
-  const memoizedFloatingLightningBolts = useMemo(() => <FloatingLightningBolts />, [])
-
   return (
     <IonPage>
       <IonHeader className={styles.header}>
@@ -147,7 +145,6 @@ const Transactions: React.FC = () => {
       </IonHeader>
 
       <IonContent fullscreen className={styles.transactionsPage}>
-        {memoizedFloatingLightningBolts}
         <div className={styles.pageContent}>
           <h1 className={styles.pageTitle}>Transacciones del día</h1>
 

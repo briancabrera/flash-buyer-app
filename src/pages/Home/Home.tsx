@@ -17,15 +17,22 @@ const Home: React.FC = () => {
     history.push("/transactions")
   }
 
+  const handleRefund = () => {
+    history.push("/refund")
+  }
+
   return (
     <IonPage>
       <Header />
       <IonContent fullscreen>
         <div className={styles.container}>
           <IonButton expand="block" size="large" onClick={handleChargePayment} className={styles.chargeButton}>
-            Cargar Pago
+            Cargar pago
           </IonButton>
-          <IonButton expand="block" size="large" onClick={handleViewTransactions} className={styles.chargeButton}>
+          <IonButton expand="block" size="large" onClick={handleRefund} className={styles.refundButton}>
+            Devolución
+          </IonButton>
+          <IonButton expand="block" size="large" onClick={handleViewTransactions} className={styles.transactionsButton}>
             Transacciones
           </IonButton>
         </div>

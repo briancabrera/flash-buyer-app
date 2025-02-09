@@ -7,6 +7,7 @@ import ChargePayment from "./pages/ChargePayment/ChargePayment"
 import ConfirmPayment from "./pages/ConfirmPayment/ConfirmPayment"
 import FloatingLightningBolts from "./components/FloatingLightningBolts/FloatingLightningBolts"
 import Transactions from "./pages/Transactions/Transactions"
+import Refund from "./pages/Refund/Refund"
 
 setupIonicReact();
 
@@ -27,6 +28,9 @@ const App: React.FC = () => {
           </Route>
           <Route exact path="/transactions">
             <Transactions />
+          </Route>
+          <Route exact path="/refund">
+            <Refund />
           </Route>
           <Route exact path="/">
             <Redirect to="/home" />

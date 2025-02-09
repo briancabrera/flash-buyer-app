@@ -1,0 +1,68 @@
+.container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: transparent;
+    z-index: 10;
+  }
+  
+  .content {
+    width: 100%;
+    max-width: 320px;
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+  }
+  
+  .title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8px;
+    text-align: center;
+  }
+  
+  .description {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 24px;
+    text-align: center;
+  }
+  
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .input {
+    --background: #f3f4f6;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    --border-radius: 8px;
+    --color: #1f2937;
+    --placeholder-color: #9ca3af;
+    --border-width: 0;
+  }
+  
+  .error {
+    font-size: 14px;
+    margin: 0;
+    text-align: center;
+  }
+  
+  .submitButton {
+    margin: 0;
+    --border-radius: 8px;
+    height: 44px;
+  }
+  
+  
