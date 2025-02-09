@@ -1,16 +1,35 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { IonContent, IonPage, IonButton } from "@ionic/react"
 import { useHistory } from "react-router-dom"
 import Header from "../../components/Header/Header"
 import NumericKeypad from "../../components/NumericKeypad/NumericKeypad"
+import PaymentConfirmationModal from "../../components/modals/PaymentConfirmationModal/PaymentConfirmationModal"
 import styles from "./ChargePayment.module.scss"
 
 const ChargePayment: React.FC = () => {
   const [amount, setAmount] = useState<string[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<"waiting" | "rejected" | "completed">("waiting")
   const history = useHistory()
+
+  const resetStates = useCallback(() => {
+    setAmount([])
+    setIsModalOpen(false)
+    setPaymentStatus("waiting")
+  }, [])
+
+  useEffect(() => {
+    // Limpiar estados cuando el componente se monta
+    resetStates()
+
+    // Limpiar estados cuando el componente se desmonta
+    return () => {
+      resetStates()
+    }
+  }, [resetStates])
 
   const handleKeyPress = (key: string) => {
     setAmount((prev) => {
@@ -29,13 +48,17 @@ const ChargePayment: React.FC = () => {
   }
 
   const handleConfirm = () => {
-    const value = formatDisplayAmount(amount)
-    if (value > 0) {
-      history.push("/confirm", { amount: value.toString() })
-    }
+    setPaymentStatus("waiting")
+    setIsModalOpen(true)
+    // Simular el proceso de pago
+    setTimeout(() => {
+      const success = Math.random() > 0.5
+      setPaymentStatus(success ? "completed" : "rejected")
+    }, 3000)
   }
 
   const handleCancel = () => {
+    resetStates()
     history.push("/home")
   }
 
@@ -75,6 +98,18 @@ const ChargePayment: React.FC = () => {
           </div>
         </div>
       </IonContent>
+      <PaymentConfirmationModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          if (paymentStatus === "completed") {
+            resetStates()
+            history.push("/home")
+          }
+        }}
+        status={paymentStatus}
+        amount={displayAmount}
+      />
     </IonPage>
   )
 }

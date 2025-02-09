@@ -1,0 +1,86 @@
+.modal {
+    --height: 320px;
+    --width: 100%;
+    
+    &::part(content) {
+      margin: auto;
+      border-radius: 16px 16px 0 0;
+      background: white;
+    }
+  }
+  
+  .modalContent {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px;
+  }
+  
+  .titleContainer {
+    margin: 0 auto;
+    padding: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    width: 310px;
+  }
+  
+  .title {
+    margin: 25px 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    color: #1f2937;
+    text-shadow: none;
+  }
+  
+  .loadingContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    
+    ion-spinner {
+      --color: #3880ff;
+    }
+  }
+  
+  .resultContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+  }
+  
+  .statusText {
+    color: #1f2937;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
+  }
+  
+  .amountText {
+    color: #3880ff;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  
+  .actionButton {
+    width: 100%;
+    max-width: 320px;
+    height: 44px;
+    margin: 15px auto 20px;
+    --border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+  
+    &::part(native) {
+      padding: 0;
+    }
+  }
+  
+  
