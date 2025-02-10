@@ -94,9 +94,11 @@
     --border-radius: 8px;
   }
 
+  .dateFilters,
   .timeFilters {
     display: flex;
     gap: 12px;
+    margin-top: 12px;
 
     .filterItem {
       flex: 1;

@@ -28,6 +28,8 @@ type TransactionStatus = "rejected" | "pending" | "completed"
 
 interface FilterState {
   transactionId: string
+  dateFrom: string
+  dateTo: string
   timeFrom: string
   timeTo: string
 }
@@ -78,6 +80,8 @@ const Transactions: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     transactionId: "",
+    dateFrom: "",
+    dateTo: "",
     timeFrom: "",
     timeTo: "",
   })
@@ -93,13 +97,22 @@ const Transactions: React.FC = () => {
     }).format(amount)
   }
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString("es-UY", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    })
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp)
+
+    // Format date as DD/MM/YY
+    const day = date.getDate().toString().padStart(2, "0")
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const year = date.getFullYear().toString().slice(-2)
+
+    // Format time as HH:MM:SS am/pm
+    const hours = date.getHours()
+    const hours12 = (hours % 12 || 12).toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+    const seconds = date.getSeconds().toString().padStart(2, "0")
+    const period = hours >= 12 ? "pm" : "am"
+
+    return `${day}/${month}/${year} ${hours12}:${minutes}:${seconds} ${period}`
   }
 
   const handleTransactionClick = (transactionId: string) => {
@@ -113,24 +126,45 @@ const Transactions: React.FC = () => {
         return false
       }
 
+      const transactionDate = new Date(transaction.timestamp)
+
+      // Filter by date range
+      if (filters.dateFrom || filters.dateTo) {
+        if (filters.dateFrom) {
+          const fromDate = new Date(filters.dateFrom)
+          fromDate.setHours(0, 0, 0, 0)
+          if (transactionDate < fromDate) return false
+        }
+        if (filters.dateTo) {
+          const toDate = new Date(filters.dateTo)
+          toDate.setHours(23, 59, 59, 999)
+          if (transactionDate > toDate) return false
+        }
+      }
+
       // Filter by time range
       if (filters.timeFrom || filters.timeTo) {
-        const transactionTime = new Date(transaction.timestamp)
+        const transactionTime = transactionDate
+        const hours = transactionTime.getHours()
+        const minutes = transactionTime.getMinutes()
+        const timeInMinutes = hours * 60 + minutes
+
         if (filters.timeFrom) {
-          const fromTime = new Date(`2025-02-09T${filters.timeFrom}`)
-          if (transactionTime < fromTime) return false
+          const [fromHours, fromMinutes] = filters.timeFrom.split(":").map(Number)
+          const fromTimeInMinutes = fromHours * 60 + fromMinutes
+          if (timeInMinutes < fromTimeInMinutes) return false
         }
+
         if (filters.timeTo) {
-          const toTime = new Date(`2025-02-09T${filters.timeTo}`)
-          if (transactionTime > toTime) return false
+          const [toHours, toMinutes] = filters.timeTo.split(":").map(Number)
+          const toTimeInMinutes = toHours * 60 + toMinutes
+          if (timeInMinutes > toTimeInMinutes) return false
         }
       }
 
       return true
     })
   }, [filters])
-
-  const memoizedFloatingLightningBolts = useMemo(() => <FloatingLightningBolts />, [])
 
   return (
     <IonPage>
@@ -170,9 +204,31 @@ const Transactions: React.FC = () => {
                   className={styles.filterInput}
                 />
               </IonItem>
+
+              <div className={styles.dateFilters}>
+                <IonItem className={styles.filterItem}>
+                  <IonLabel position="stacked">Fecha desde</IonLabel>
+                  <IonInput
+                    type="date"
+                    value={filters.dateFrom}
+                    onIonInput={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.detail.value || "" }))}
+                    className={styles.filterInput}
+                  />
+                </IonItem>
+                <IonItem className={styles.filterItem}>
+                  <IonLabel position="stacked">Fecha hasta</IonLabel>
+                  <IonInput
+                    type="date"
+                    value={filters.dateTo}
+                    onIonInput={(e) => setFilters((prev) => ({ ...prev, dateTo: e.detail.value || "" }))}
+                    className={styles.filterInput}
+                  />
+                </IonItem>
+              </div>
+
               <div className={styles.timeFilters}>
                 <IonItem className={styles.filterItem}>
-                  <IonLabel position="stacked">Desde</IonLabel>
+                  <IonLabel position="stacked">Hora desde</IonLabel>
                   <IonInput
                     type="time"
                     value={filters.timeFrom}
@@ -181,7 +237,7 @@ const Transactions: React.FC = () => {
                   />
                 </IonItem>
                 <IonItem className={styles.filterItem}>
-                  <IonLabel position="stacked">Hasta</IonLabel>
+                  <IonLabel position="stacked">Hora hasta</IonLabel>
                   <IonInput
                     type="time"
                     value={filters.timeTo}
@@ -211,7 +267,7 @@ const Transactions: React.FC = () => {
                         </IonText>
                       </div>
                       <div className={styles.row}>
-                        <IonText className={styles.time}>{formatTime(transaction.timestamp)}</IonText>
+                        <IonText className={styles.time}>{formatTimestamp(transaction.timestamp)}</IonText>
                         <IonText className={styles.transactionId}>{transaction.id}</IonText>
                       </div>
                     </div>
