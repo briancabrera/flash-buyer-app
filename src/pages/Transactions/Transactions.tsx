@@ -102,6 +102,10 @@ const Transactions: React.FC = () => {
     })
   }
 
+  const handleTransactionClick = (transactionId: string) => {
+    history.push(`/transaction/${transactionId}`)
+  }
+
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
       // Filter by transaction ID
@@ -126,6 +130,8 @@ const Transactions: React.FC = () => {
     })
   }, [filters])
 
+  const memoizedFloatingLightningBolts = useMemo(() => <FloatingLightningBolts />, [])
+
   return (
     <IonPage>
       <IonHeader className={styles.header}>
@@ -146,7 +152,7 @@ const Transactions: React.FC = () => {
 
       <IonContent fullscreen className={styles.transactionsPage}>
         <div className={styles.pageContent}>
-          <h1 className={styles.pageTitle}>Transacciones del día</h1>
+          <h1 className={styles.pageTitle}>Transacciones</h1>
 
           {showFilters && (
             <motion.div
@@ -195,7 +201,7 @@ const Transactions: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
               >
-                <IonCard className={styles.transactionCard}>
+                <IonCard className={styles.transactionCard} onClick={() => handleTransactionClick(transaction.id)}>
                   <IonCardContent className={styles.transactionContent}>
                     <div className={styles.transactionInfo}>
                       <div className={styles.row}>

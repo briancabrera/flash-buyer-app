@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { IonContent, IonPage, IonButton } from "@ionic/react"
-import { useHistory } from "react-router-dom"
+import { useHistory, useLocation } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import Header from "../../components/Header/Header"
 import NumericKeypad from "../../components/NumericKeypad/NumericKeypad"
@@ -12,6 +12,10 @@ import TransactionIdPrompt from "../../components/modals/TransactionIdPrompt/Tra
 import FloatingLightningBolts from "../../components/FloatingLightningBolts/FloatingLightningBolts"
 import { findTransactionById, processRefund } from "../../services/transactionService"
 import styles from "./Refund.module.scss"
+
+interface LocationState {
+  transactionId?: string
+}
 
 const Refund: React.FC = () => {
   const [amount, setAmount] = useState<string[]>([])
@@ -25,6 +29,7 @@ const Refund: React.FC = () => {
     amount: number
   } | null>(null)
   const history = useHistory()
+  const location = useLocation<LocationState>()
 
   const resetStates = useCallback(() => {
     setAmount([])
@@ -37,12 +42,16 @@ const Refund: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    // Reset states when component mounts
     resetStates()
 
-    // Cleanup function to reset states when component unmounts
+    // If we have a transactionId in the state, fetch it automatically
+    const transactionId = location.state?.transactionId
+    if (transactionId) {
+      handleTransactionIdSubmit(transactionId)
+    }
+
     return resetStates
-  }, [resetStates])
+  }, [resetStates, location.state?.transactionId])
 
   const handleTransactionIdSubmit = async (id: string) => {
     setIsLoading(true)
