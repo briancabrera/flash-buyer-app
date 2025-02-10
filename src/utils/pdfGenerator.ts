@@ -64,7 +64,7 @@ export const generateTransactionReceipt = (transaction: Transaction): Promise<st
 
     doc.setFontSize(10)
     doc.setTextColor(127, 140, 141)
-    doc.text("Este es un comprobante generado electrónicamente por Flash Vendor.", 105, 280, { align: "center" })
+    doc.text("Este es un comprobante generado electrónicamente por Flash.", 105, 280, { align: "center" })
 
     // Generate PDF as data URL
     const pdfOutput = doc.output("dataurlstring")

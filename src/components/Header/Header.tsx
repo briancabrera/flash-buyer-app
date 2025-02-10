@@ -9,7 +9,7 @@ const Header: React.FC = () => {
         <IonButtons slot="start">
           <IonMenuButton />
         </IonButtons>
-        <IonTitle>Flash Vendor</IonTitle>
+        <IonTitle>Flash</IonTitle>
       </IonToolbar>
     </IonHeader>
   )

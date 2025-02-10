@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { IonContent, IonPage, IonButton } from "@ionic/react"
+import { IonContent, IonPage, IonButton, IonHeader, IonButtons, IonIcon, IonTitle, IonToolbar } from "@ionic/react"
 import { useHistory, useLocation } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import Header from "../../components/Header/Header"
@@ -12,6 +12,7 @@ import TransactionIdPrompt from "../../components/modals/TransactionIdPrompt/Tra
 import FloatingLightningBolts from "../../components/FloatingLightningBolts/FloatingLightningBolts"
 import { findTransactionById, processRefund } from "../../services/transactionService"
 import styles from "./Refund.module.scss"
+import { chevronBack } from "ionicons/icons"
 
 interface LocationState {
   transactionId?: string
@@ -30,6 +31,8 @@ const Refund: React.FC = () => {
   } | null>(null)
   const history = useHistory()
   const location = useLocation<LocationState>()
+
+  const handleBack = () => history.goBack()
 
   const resetStates = useCallback(() => {
     setAmount([])
@@ -130,7 +133,17 @@ const Refund: React.FC = () => {
 
   return (
     <IonPage className={styles.refundPage}>
-      <Header />
+      <IonHeader className={styles.header}>
+        <IonToolbar>
+          <IonTitle>Flash</IonTitle>
+          <IonButtons slot="start">
+            <IonButton className={styles.backButton} onClick={handleBack}>
+              <IonIcon className={styles.backIcon} icon={chevronBack} />
+            </IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+      
       <IonContent fullscreen>
         <AnimatePresence mode="wait">
           {showPrompt ? (

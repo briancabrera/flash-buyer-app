@@ -170,7 +170,7 @@ const Transactions: React.FC = () => {
     <IonPage>
       <IonHeader className={styles.header}>
         <IonToolbar>
-          <IonTitle className={styles.title}>Flash Vendor</IonTitle>
+          <IonTitle className={styles.title}>Flash</IonTitle>
           <IonButtons slot="start">
             <IonButton className={styles.backButton} onClick={handleBack}>
               <IonIcon icon={chevronBack} className={styles.backIcon} />

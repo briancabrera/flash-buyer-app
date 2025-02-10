@@ -2,12 +2,13 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { IonContent, IonPage, IonButton } from "@ionic/react"
+import { IonContent, IonPage, IonButton, IonButtons, IonHeader, IonIcon, IonTitle, IonToolbar } from "@ionic/react"
 import { useHistory } from "react-router-dom"
 import Header from "../../components/Header/Header"
 import NumericKeypad from "../../components/NumericKeypad/NumericKeypad"
 import PaymentConfirmationModal from "../../components/modals/PaymentConfirmationModal/PaymentConfirmationModal"
 import styles from "./ChargePayment.module.scss"
+import { chevronBack } from "ionicons/icons"
 
 const ChargePayment: React.FC = () => {
   const [amount, setAmount] = useState<string[]>([])
@@ -74,9 +75,22 @@ const ChargePayment: React.FC = () => {
 
   const displayAmount = formatDisplayAmount(amount).toFixed(2)
 
+  const handleBack = () => history.goBack()
+  
   return (
     <IonPage>
-      <Header />
+      
+      <IonHeader className={styles.header}>
+        <IonToolbar>
+          <IonTitle>Flash</IonTitle>
+          <IonButtons slot="start">
+            <IonButton className={styles.backButton} onClick={handleBack}>
+              <IonIcon className={styles.backIcon} icon={chevronBack} />
+            </IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+
       <IonContent fullscreen>
         <div className={styles.container}>
           <div className={styles.amountDisplay}>{displayAmount}</div>

@@ -1,3 +1,40 @@
+.header {
+  ion-toolbar {
+    --border-width: 0 !important;
+    --border-color: transparent !important;
+    --background: transparent;
+    --padding-top: 1rem;
+    --padding-end: 1rem;
+    
+    ion-title {
+      color: #ffffff;
+    }
+
+    ion-buttons {
+      margin-left: 20px;
+
+      &[slot="end"] {
+        margin-right: 20px;
+        margin-left: 0;
+      }
+    }
+  }
+
+  .backButton,
+  .filterButton {
+    --background: transparent;
+    --box-shadow: none;
+    margin: 0;
+    padding: 0;
+    
+    .backIcon,
+    .filterIcon {
+      font-size: 24px;
+      color: white;
+    }
+  }
+}
+
 .refundPage {
     position: relative;
     background: transparent;

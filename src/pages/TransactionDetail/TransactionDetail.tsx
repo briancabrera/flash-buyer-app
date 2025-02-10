@@ -99,7 +99,7 @@ const TransactionDetail: React.FC = () => {
       if (Capacitor.isNativePlatform()) {
         await Share.share({
           title: "Comprobante de transacción",
-          text: "Aquí está tu comprobante de transacción de Flash Vendor",
+          text: "Aquí está tu comprobante de transacción de Flash",
           url: pdfDataUrl,
           dialogTitle: "Compartir comprobante",
         })
@@ -125,7 +125,7 @@ const TransactionDetail: React.FC = () => {
     <IonPage>
       <IonHeader className={styles.header}>
         <IonToolbar>
-          <IonTitle>Flash Vendor</IonTitle>
+          <IonTitle>Flash</IonTitle>
           <IonButtons slot="start">
             <IonButton className={styles.backButton} onClick={handleBack}>
               <IonIcon className={styles.backIcon} icon={chevronBack} />
