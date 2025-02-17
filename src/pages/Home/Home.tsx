@@ -1,39 +1,23 @@
-"use client"
-
 import type React from "react"
 import { IonContent, IonPage, IonButton } from "@ionic/react"
-import { useHistory } from "react-router-dom"
-import Header from "../../components/Header/Header"
+import { useIonRouter } from "@ionic/react"
 import styles from "./Home.module.scss"
 
 const Home: React.FC = () => {
-  const history = useHistory()
+  const router = useIonRouter()
 
-  const handleChargePayment = () => {
-    history.push("/charge")
-  }
-
-  const handleViewTransactions = () => {
-    history.push("/transactions")
-  }
-
-  const handleRefund = () => {
-    history.push("/refund")
+  const handlePay = () => {
+    router.push('/facial-recognition');
   }
 
   return (
-    <IonPage>
-      <Header />
+    <IonPage className={styles.homePage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          <IonButton expand="block" size="large" onClick={handleChargePayment} className={styles.chargeButton}>
-            Cargar pago
-          </IonButton>
-          <IonButton expand="block" size="large" onClick={handleRefund} className={styles.refundButton}>
-            Devolución
-          </IonButton>
-          <IonButton expand="block" size="large" onClick={handleViewTransactions} className={styles.transactionsButton}>
-            Transacciones
+          <h1 className={styles.title}>Bienvenido a Flash</h1>
+          <p className={styles.subtitle}>Paga rápido y seguro con reconocimiento facial</p>
+          <IonButton expand="block" size="large" onClick={handlePay} className={styles.payButton}>
+            Pagar
           </IonButton>
         </div>
       </IonContent>

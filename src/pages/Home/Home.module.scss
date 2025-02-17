@@ -1,3 +1,7 @@
+.homePage {
+  --background: transparent;
+}
+
 .container {
   display: flex;
   flex-direction: column;
@@ -5,18 +9,30 @@
   align-items: center;
   height: 100%;
   padding: 20px;
+  text-align: center;
 }
 
-.chargeButton,
-.transactionsButton,
-.refundButton {
+.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 10px;
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 40px;
+}
+
+.payButton {
   font-size: 1.2em;
   height: 60px;
   width: 80%;
   max-width: 300px;
-  margin-bottom: 20px;
   --background: rgba(255, 255, 255, 0.9);
   --color: var(--ion-color-primary);
 }
-
 

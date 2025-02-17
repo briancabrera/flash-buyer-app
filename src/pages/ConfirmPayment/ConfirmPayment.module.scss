@@ -1,0 +1,166 @@
+.confirmPaymentPage {
+    --background: var(--ion-color-primary);
+  }
+  
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 20px;
+    transform: translateY(-5%);
+  }
+  
+  .title {
+    color: white;
+    font-size: 2.5rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 20px 60px;
+  }
+  
+  .paymentDetails {
+    width: 100%;
+    max-width: 400px;
+    padding: 0 20px;
+    margin-bottom: 40px;
+  }
+  
+  .amountCard {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .amount {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  
+  .currencySymbol {
+    font-size: 24px;
+    font-weight: 500;
+  }
+  
+  .amountValue {
+    font-size: 32px;
+    font-weight: bold;
+  }
+  
+  .currency {
+    font-size: 20px;
+    font-weight: 500;
+    margin-left: 4px;
+  }
+  
+  .currencyLabel {
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.7);
+    margin-bottom: 16px;
+  }
+  
+  .cardInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .cardBrand {
+    font-size: 16px;
+    font-weight: 500;
+  }
+  
+  .cardNumber {
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.8);
+  }
+  
+  .confirmButton,
+  .changeMethodButton,
+  .cancelButton,
+  .homeButton {
+    width: 100%;
+    max-width: 400px;
+    height: 60px;
+    font-size: 1.2em;
+    font-weight: 500;
+    margin-bottom: 16px;
+    padding: 0 20px;
+  }
+  
+  .confirmButton {
+    --background: rgba(255, 255, 255, 0.9);
+    --color: var(--ion-color-primary);
+  }
+  
+  .changeMethodButton,
+  .cancelButton {
+    --background: transparent;
+    --color: white;
+    --border-color: white;
+    --border-style: solid;
+    --border-width: 1px;
+  }
+  
+  .loadingContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    margin-top: 20px;
+  
+    ion-spinner {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 16px;
+    }
+  }
+  
+  .resultContainer {
+    text-align: center;
+    color: white;
+    margin-top: 20px;
+  }
+  
+  .successMessage,
+  .errorMessage {
+    font-size: 1.2em;
+    margin-bottom: 20px;
+  }
+  
+  .successMessage {
+    color: #4caf50;
+  }
+  
+  .errorMessage {
+    color: #f44336;
+  }
+  
+  .homeButton {
+    --background: rgba(255, 255, 255, 0.9);
+    --color: var(--ion-color-primary);
+  }
+
+  .helpButtons {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    background: var(--ion-color-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  

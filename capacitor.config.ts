@@ -7,6 +7,9 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 0
+    },
+    Camera: {
+      permissionDescription: 'Se necesita acceso a la cámara para el reconocimiento facial.'
     }
   },
   android: {

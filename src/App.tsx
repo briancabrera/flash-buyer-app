@@ -3,13 +3,11 @@ import { IonApp, IonRouterOutlet, setupIonicReact } from "@ionic/react"
 import { IonReactRouter } from "@ionic/react-router"
 import { Redirect, Route } from "react-router-dom"
 import Home from "./pages/Home/Home"
-import ChargePayment from "./pages/ChargePayment/ChargePayment"
-import ConfirmPayment from "./pages/ConfirmPayment/ConfirmPayment"
-import Transactions from "./pages/Transactions/Transactions"
-import Refund from "./pages/Refund/Refund"
-import TransactionDetail from "./pages/TransactionDetail/TransactionDetail"
 import FloatingLightningBolts from "./components/FloatingLightningBolts/FloatingLightningBolts"
 import { fadeAnimation } from "./animations/fadeAnimation"
+import FacialRecognition from "./pages/FacialRecognition/FacialRecognition"
+import SelectPaymentMethod from "./pages/SelectPaymentMethod/SelectPaymentMethod"
+import ConfirmPayment from "./pages/ConfirmPayment/ConfirmPayment"
 
 setupIonicReact({
   animated: true,
@@ -27,20 +25,14 @@ const App: React.FC = () => {
             <Route exact path="/home">
               <Home />
             </Route>
-            <Route exact path="/charge">
-              <ChargePayment />
+            <Route exact path="/facial-recognition">
+              <FacialRecognition />
             </Route>
-            <Route exact path="/confirm">
+            <Route exact path="/select-payment-method">
+              <SelectPaymentMethod />
+            </Route>
+            <Route exact path="/confirm-payment">
               <ConfirmPayment />
-            </Route>
-            <Route exact path="/transactions">
-              <Transactions />
-            </Route>
-            <Route exact path="/refund">
-              <Refund />
-            </Route>
-            <Route exact path="/transaction/:id">
-              <TransactionDetail />
             </Route>
             <Route exact path="/">
               <Redirect to="/home" />
