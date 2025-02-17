@@ -1,3 +1,3 @@
-# flash-vendor
-# flsh-vendor-app
-# flsh-vendor-app
+# flash-buyer
+# flsh-buyer-app
+# flsh-buyer-app

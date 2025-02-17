@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.flashvendorapp.mobile',
-  appName: 'Flash Vendor',
+  appId: 'io.flashbuyerapp.mobile',
+  appName: 'Flash Buyer',
   webDir: 'dist',
   plugins: {
     SplashScreen: {
