@@ -84,4 +84,3 @@ const ConfirmPayment: React.FC = () => {
 }
 
 export default ConfirmPayment
-

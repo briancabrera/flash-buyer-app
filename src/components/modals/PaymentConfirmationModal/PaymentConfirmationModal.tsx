@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { IonModal, IonSpinner, IonText, IonButton } from "@ionic/react"
 import { CheckmarkCircle, CloseCircle } from "react-ionicons"
 import styles from "./PaymentConfirmationModal.module.scss"
@@ -9,7 +10,25 @@ interface PaymentConfirmationModalProps {
   amount: string
 }
 
-export default function PaymentConfirmationModal({ isOpen, onClose, status, amount }: PaymentConfirmationModalProps) {
+export default function PaymentConfirmationModal({
+  isOpen,
+  onClose,
+  status,
+  amount,
+}: PaymentConfirmationModalProps) {
+
+  // ⏱️ Auto-cierre a los 3s solo si el estado es "completed"
+  useEffect(() => {
+    if (!isOpen) return
+    if (status !== "completed") return
+
+    const t = window.setTimeout(() => {
+      onClose()
+    }, 3000)
+
+    return () => window.clearTimeout(t)
+  }, [isOpen, status, onClose])
+
   const renderContent = () => {
     switch (status) {
       case "waiting":
@@ -60,4 +79,3 @@ export default function PaymentConfirmationModal({ isOpen, onClose, status, amou
     </IonModal>
   )
 }
-
