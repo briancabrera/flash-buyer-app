@@ -1,5 +1,5 @@
 // src/pages/PaymentPin/PaymentPin.tsx
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   IonContent,
   IonPage,
@@ -9,12 +9,27 @@ import {
   IonText,
   IonButton,
   useIonRouter,
+  useIonViewWillEnter,
+  useIonViewDidLeave,
 } from "@ionic/react";
 import styles from "./PaymentPin.module.scss";
 
 const PaymentPin: React.FC = () => {
   const ionRouter = useIonRouter();
   const [pin, setPin] = useState("");
+  const inputRef = useRef<HTMLIonInputElement>(null);
+
+  // ——— Reset en cada entrada a la vista
+  useIonViewWillEnter(() => {
+    setPin("");
+    // re-focus por UX
+    setTimeout(() => inputRef.current?.setFocus?.(), 0);
+  });
+
+  // ——— Reset al salir (por cache del IonRouterOutlet)
+  useIonViewDidLeave(() => {
+    setPin("");
+  });
 
   const setSanitizedPin = (val?: string | null) => {
     const digitsOnly = (val ?? "").replace(/\D/g, "").slice(0, 4);
@@ -23,6 +38,8 @@ const PaymentPin: React.FC = () => {
 
   const handleContinue = () => {
     if (pin === "1234") {
+      // opcional: limpiar antes de navegar
+      setPin("");
       ionRouter.push("/select-payment-method", "forward");
     }
   };
@@ -31,10 +48,10 @@ const PaymentPin: React.FC = () => {
 
   return (
     <IonPage>
-
       <IonContent fullscreen className={styles.content}>
         <div className={styles.contentWrapper}>
           <h1 className={styles.title}>Código de seguridad</h1>
+
           <div className={styles.cardWrapper}>
             <IonCard className={styles.card}>
               <IonCardContent className={styles.cardContent}>
@@ -43,24 +60,21 @@ const PaymentPin: React.FC = () => {
                 </IonText>
 
                 <IonInput
-                  // ← Puntos/oculto
-                  type="password"
-                  // ← Teclado numérico
-                  inputMode="numeric"
-                  // Compatibilidad: algunos teclados usan pattern para sugerir numérico
-                  // (lo dejamos aunque type sea password)
+                  ref={inputRef}
+                  type="password"          // oculto con puntos
+                  inputMode="numeric"      // teclado numérico
                   pattern="[0-9]*"
                   value={pin}
                   placeholder="••••"
                   maxlength={4}
-                  // ← Actualiza en cada tecla, sin esperar blur
                   onIonInput={(e) => setSanitizedPin(e.detail.value)}
-                  // (opcional) también por change, por compatibilidad
                   onIonChange={(e) => setSanitizedPin(e.detail.value)}
                   className={styles.pinInput}
                   autofocus
                   clearOnEdit={false}
                   enterkeyhint="done"
+                  // opcional: evita autocompletados raros
+                  autocomplete="one-time-code"
                 />
 
                 <IonButton
