@@ -60,16 +60,8 @@ const SelectPaymentMethod: React.FC = () => {
     <IonPage className={styles.selectPaymentMethodPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          {
-            requiresPin ? (
-              <h1 className={styles.title}>Selecciona un método de pago</h1>
-            ) : (
-              <>
-                <h1 className={styles.title}>Hola {userName}!</h1>
-                <h2 className={styles.subTitle}>Por favor, selecciona un método de pago</h2>
-              </>
-            )
-          }
+          <h1 className={styles.title}>Hola {userName}!</h1>
+          <h2 className={styles.subTitle}>Por favor, selecciona un método de pago</h2>
           <div className={styles.cardListContainer}>
             {cards.map((card) => (
               <div key={card.id} className={styles.cardItem} onClick={() => handleCardSelect(card.id)}>

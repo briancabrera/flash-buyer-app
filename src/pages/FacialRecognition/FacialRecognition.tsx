@@ -1,20 +1,19 @@
-"use client"
-
-import type React from "react"
-import { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react";
 import {
   IonContent,
   IonPage,
+  useIonViewWillEnter,
+  useIonViewDidEnter,
   useIonViewWillLeave,
-  useIonViewDidLeave
-} from "@ionic/react"
-import { useIonRouter } from "@ionic/react"
-import { motion } from "framer-motion"
-import { fetchCurrentPayment } from "../../services/payment.service"
-import { usePayment } from "../../context/PaymentContext"
-import styles from "./FacialRecognition.module.scss"
+  useIonViewDidLeave,
+} from "@ionic/react";
+import { useIonRouter } from "@ionic/react";
+import { motion } from "framer-motion";
+import { fetchCurrentPayment } from "../../services/payment.service";
+import { usePayment } from "../../context/PaymentContext";
+import styles from "./FacialRecognition.module.scss";
 
-type Phase = "boot" | "scanning" | "success"
+type Phase = "boot" | "scanning" | "success";
 
 const FacialRecognition: React.FC = () => {
   const router = useIonRouter();
@@ -23,15 +22,15 @@ const FacialRecognition: React.FC = () => {
 
   const toSuccessRef = useRef<number | null>(null);
   const toRouteRef = useRef<number | null>(null);
-  const hasNavigatedRef = useRef(false);   // ⬅️ evita dobles GET/navegación
-  const isActiveRef = useRef(true);        // ⬅️ cancela trabajo si la vista se fue
+  const hasNavigatedRef = useRef(false);
+  const isActiveRef = useRef(false);
 
   const { setPayment } = usePayment();
 
-  const [phase, setPhase] = useState<"boot" | "scanning" | "success">("boot");
+  const [phase, setPhase] = useState<Phase>("boot");
   const [isCameraReady, setIsCameraReady] = useState(false);
 
-  const clearAllTimers: () => void = () => {
+  const clearAllTimers = () => {
     if (toSuccessRef.current) { window.clearTimeout(toSuccessRef.current); toSuccessRef.current = null; }
     if (toRouteRef.current)   { window.clearTimeout(toRouteRef.current);   toRouteRef.current = null; }
   };
@@ -54,9 +53,8 @@ const FacialRecognition: React.FC = () => {
   };
 
   const handleFaceOk = async () => {
-    if (hasNavigatedRef.current || !isActiveRef.current) return; // ⬅️ guard crítico
+    if (hasNavigatedRef.current || !isActiveRef.current) return;
     hasNavigatedRef.current = true;
-
     try {
       const payment = await fetchCurrentPayment();
       setPayment(payment);
@@ -67,34 +65,29 @@ const FacialRecognition: React.FC = () => {
     }
   };
 
-  useIonViewWillLeave(() => {
-    // La vista sale de foco pero NO se desmonta ⇒ limpiamos acá
-    isActiveRef.current = false;
-    clearAllTimers();
-    document.removeEventListener("visibilitychange", onVisibilityRef.current!);
-    stopCamera();
-  });
-
-  useIonViewDidLeave(() => {
-    // Doble seguridad (algunos flows disparan WillLeave pero no DidLeave inmediatamente)
-    isActiveRef.current = false;
-    clearAllTimers();
-    stopCamera();
-  });
-
+  // ---------- lifecycle: ENTER ----------
   const onVisibilityRef = useRef<() => void>();
-  useEffect(() => {
+  useIonViewWillEnter(() => {
+    // Reset TOTAL antes de mostrar la vista
     isActiveRef.current = true;
     hasNavigatedRef.current = false;
+    setPhase("boot");
+    setIsCameraReady(false);
+  });
 
+  useIonViewDidEnter(() => {
+    // Arrancamos listeners + cámara en cada entrada
     const onVisibility = () => { if (document.hidden) stopCamera(); };
     onVisibilityRef.current = onVisibility;
     document.addEventListener("visibilitychange", onVisibility);
 
     const start = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-        if (!isActiveRef.current) return; // si la vista ya salió, abortar
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+        if (!isActiveRef.current) return;
         streamRef.current = stream;
 
         const v = videoRef.current;
@@ -104,12 +97,10 @@ const FacialRecognition: React.FC = () => {
             if (!isActiveRef.current) return;
             setIsCameraReady(true);
             setPhase("scanning");
-
             // 3s de escaneo → éxito
             toSuccessRef.current = window.setTimeout(() => {
               if (!isActiveRef.current) return;
               setPhase("success");
-              // esperamos 1.2s para el tick y navegamos
               toRouteRef.current = window.setTimeout(() => {
                 if (!isActiveRef.current) return;
                 stopCamera();
@@ -137,34 +128,42 @@ const FacialRecognition: React.FC = () => {
     };
 
     start();
+  });
 
+  // ---------- lifecycle: LEAVE ----------
+  useIonViewWillLeave(() => {
+    isActiveRef.current = false;
+    clearAllTimers();
+    if (onVisibilityRef.current) document.removeEventListener("visibilitychange", onVisibilityRef.current);
+    stopCamera();
+  });
+
+  useIonViewDidLeave(() => {
+    // redundante a propósito (algunos flows llaman solo uno)
+    isActiveRef.current = false;
+    clearAllTimers();
+    if (onVisibilityRef.current) document.removeEventListener("visibilitychange", onVisibilityRef.current);
+    stopCamera();
+  });
+
+  // (opcional) respaldo si alguna vez se desmonta de verdad
+  useEffect(() => {
     return () => {
-      // OJO: en Ionic esto puede no correr al navegar (no hay unmount),
-      // pero si la vista se desmonta por cualquier razón, igual limpiamos.
       isActiveRef.current = false;
       clearAllTimers();
-      document.removeEventListener("visibilitychange", onVisibility);
+      if (onVisibilityRef.current) document.removeEventListener("visibilitychange", onVisibilityRef.current);
       stopCamera();
     };
   }, []);
 
-  // Overlay: 0 (antes de cámara), 1 (scanning), 0 (success → fade-out)
-  const overlayOpacity = !isCameraReady ? 0 : phase === "success" ? 0 : 1
+  const overlayOpacity = !isCameraReady ? 0 : phase === "success" ? 0 : 1;
 
   return (
     <IonPage className={styles.facialRecognitionPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          {/* Cámara: NO se oculta al success (tick aparece encima) */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className={styles.cameraFeed}
-          />
+          <video ref={videoRef} autoPlay playsInline muted className={styles.cameraFeed} />
 
-          {/* Overlay minimal: solo el rectángulo + línea de escaneo */}
           <motion.div
             className={styles.overlay}
             initial={{ opacity: 0 }}
@@ -176,10 +175,7 @@ const FacialRecognition: React.FC = () => {
               <div className={`${styles.corner} ${styles.tr}`} />
               <div className={`${styles.corner} ${styles.bl}`} />
               <div className={`${styles.corner} ${styles.br}`} />
-
-              {/* scan line (solo en scanning) */}
               {phase === "scanning" && <div className={styles.scanBand} />}
-
             </div>
           </motion.div>
 
@@ -233,11 +229,10 @@ const FacialRecognition: React.FC = () => {
               </motion.svg>
             </motion.div>
           )}
-
         </div>
       </IonContent>
     </IonPage>
-  )
-}
+  );
+};
 
-export default FacialRecognition
+export default FacialRecognition;

@@ -2,7 +2,7 @@
 import { http } from "./http";
 
 export type PaymentPayload = {
-  amount: number;
+  amount: string;
   currency: string;   // "UYU", "USD", etc.
   pin_required: boolean;
   user_name: string;

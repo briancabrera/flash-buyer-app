@@ -23,9 +23,10 @@ const ConfirmPayment: React.FC = () => {
     try {
       payCurrentPayment();
       setTimeout(() => {
-        setPaymentStatus(Math.random() > 0.5 ? "completed" : "rejected")
+        setPaymentStatus("completed")
       }, 1200)
     } catch (e) {
+      console.error("Payment error:", e);
       setPaymentStatus("rejected")
     }
   }
@@ -85,7 +86,7 @@ const ConfirmPayment: React.FC = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         status={paymentStatus}
-        amount="1,500.00"
+        amount={amount}
       />
     </IonPage>
   )
