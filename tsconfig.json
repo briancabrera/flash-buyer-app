@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["swiper"]
+    "types": ["swiper", "node"],
   },
   "include": ["src", "capacitor.config.ts", "cypress.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]

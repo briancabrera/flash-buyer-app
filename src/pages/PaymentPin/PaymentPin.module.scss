@@ -1,0 +1,128 @@
+/* src/pages/PaymentPin/PaymentPin.module.scss */
+
+.content {
+  --background: transparent;
+  --padding-top: 2rem;
+  --padding-start: 1rem;
+  --padding-end: 1rem;
+  --padding-bottom: 2rem;
+  position: relative;
+}
+
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  text-align: center;
+  padding-top: 1rem;
+  margin: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.cardWrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 80px 20px;
+  margin-bottom: 40px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  margin: 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+}
+
+.cardContent {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stepTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 8px;
+}
+
+.message {
+  font-size: 14px;
+  margin-bottom: 24px;
+  display: block;
+  color: #6b7280;
+}
+
+.pinInput {
+  --background: #f3f4f6;
+  --padding-start: 1rem;
+  --padding-end: 1rem;
+  --padding-top: 0.75rem;
+  --padding-bottom: 0.75rem;
+  --border-radius: 8px;
+  --placeholder-color: #9ca3af;
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 8px;
+  margin-bottom: 24px;
+  max-width: 200px;
+}
+
+.nextButton {
+  --background: #3880ff;
+  --color: #ffffff;
+  --border-radius: 12px;
+  --padding-top: 1rem;
+  --padding-bottom: 1rem;
+  margin: 0;
+  font-weight: 600;
+  width: 100%;
+
+  &:disabled {
+    --background: #9ca3af;
+    opacity: 0.7;
+  }
+}
+
+.securityMessage {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: #ffffff;
+  opacity: 0.8;
+  padding: 0 16px;
+  position: absolute;
+  bottom: 2rem;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  max-width: 400px;
+}
+
+.welcome {
+  display: block;
+  text-align: center;
+  color: #ffffff;
+  opacity: 0.95;
+  margin-top: 40px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}

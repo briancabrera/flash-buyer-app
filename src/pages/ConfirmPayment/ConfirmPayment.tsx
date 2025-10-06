@@ -5,21 +5,29 @@ import { useState } from "react"
 import { IonContent, IonPage, IonButton } from "@ionic/react"
 import { useIonRouter } from "@ionic/react"
 import PaymentConfirmationModal from "../../components/modals/PaymentConfirmationModal/PaymentConfirmationModal"
+import { usePayment } from "../../context/PaymentContext"
 import styles from "./ConfirmPayment.module.scss"
+import { payCurrentPayment } from "../../services/payment.service"
 
 const ConfirmPayment: React.FC = () => {
   const router = useIonRouter()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState<"waiting" | "rejected" | "completed">("waiting")
 
+  const { payment } = usePayment();
+  const { amount, currency } = payment || { amount: "1500.00", currency: "UYU" };
+
   const handleConfirm = () => {
     setIsModalOpen(true)
     setPaymentStatus("waiting")
-    // Simulamos una llamada a la API
-    setTimeout(() => {
-      // Simulamos un resultado aleatorio
-      setPaymentStatus(Math.random() > 0.5 ? "completed" : "rejected")
-    }, 2000)
+    try {
+      payCurrentPayment();
+      setTimeout(() => {
+        setPaymentStatus(Math.random() > 0.5 ? "completed" : "rejected")
+      }, 1200)
+    } catch (e) {
+      setPaymentStatus("rejected")
+    }
   }
 
   const handleCloseModal = () => {
@@ -47,8 +55,8 @@ const ConfirmPayment: React.FC = () => {
             <div className={styles.amountCard}>
               <div className={styles.amount}>
                 <span className={styles.currencySymbol}>$</span>
-                <span className={styles.amountValue}>1,500.00</span>
-                <span className={styles.currency}>UYU</span>
+                <span className={styles.amountValue}>{amount}</span>
+                <span className={styles.currency}>{currency}</span>
               </div>
               <div className={styles.currencyLabel}>Pesos Uruguayos</div>
               <div className={styles.cardInfo}>

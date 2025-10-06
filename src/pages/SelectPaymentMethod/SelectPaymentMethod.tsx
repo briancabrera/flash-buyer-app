@@ -2,9 +2,10 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { IonContent, IonPage, IonSpinner } from "@ionic/react"
+import { IonContent, IonPage, IonSpinner, IonText } from "@ionic/react"
 import { useIonRouter } from "@ionic/react"
 import { ChevronRightIcon } from "lucide-react"
+import { usePayment } from "../../context/PaymentContext"
 import styles from "./SelectPaymentMethod.module.scss"
 
 interface Card {
@@ -17,6 +18,10 @@ const SelectPaymentMethod: React.FC = () => {
   const router = useIonRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [cards, setCards] = useState<Card[]>([])
+
+  const { payment } = usePayment();
+  const userName = payment?.user_name || "Usuario";
+  const requiresPin = !!payment?.pin_required;
 
   useEffect(() => {
     setTimeout(() => {
@@ -55,7 +60,16 @@ const SelectPaymentMethod: React.FC = () => {
     <IonPage className={styles.selectPaymentMethodPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          <h1 className={styles.title}>Selecciona un método de pago</h1>
+          {
+            requiresPin ? (
+              <h1 className={styles.title}>Selecciona un método de pago</h1>
+            ) : (
+              <>
+                <h1 className={styles.title}>Hola {userName}!</h1>
+                <h2 className={styles.subTitle}>Por favor, selecciona un método de pago</h2>
+              </>
+            )
+          }
           <div className={styles.cardListContainer}>
             {cards.map((card) => (
               <div key={card.id} className={styles.cardItem} onClick={() => handleCardSelect(card.id)}>

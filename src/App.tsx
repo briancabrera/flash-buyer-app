@@ -8,6 +8,8 @@ import { fadeAnimation } from "./animations/fadeAnimation"
 import FacialRecognition from "./pages/FacialRecognition/FacialRecognition"
 import SelectPaymentMethod from "./pages/SelectPaymentMethod/SelectPaymentMethod"
 import ConfirmPayment from "./pages/ConfirmPayment/ConfirmPayment"
+import PaymentPin from "./pages/PaymentPin/PaymentPin"
+import { PaymentProvider } from "./context/PaymentContext"
 
 setupIonicReact({
   animated: true,
@@ -19,11 +21,15 @@ setupIonicReact({
 const App: React.FC = () => {
   return (
     <IonApp>
+      <PaymentProvider>
         <FloatingLightningBolts />
         <IonReactRouter>
           <IonRouterOutlet>
             <Route exact path="/home">
               <Home />
+            </Route>
+            <Route exact path="/payment-pin">
+              <PaymentPin />
             </Route>
             <Route exact path="/facial-recognition">
               <FacialRecognition />
@@ -39,6 +45,7 @@ const App: React.FC = () => {
             </Route>
           </IonRouterOutlet>
         </IonReactRouter>
+      </PaymentProvider>
     </IonApp>
   )
 }
