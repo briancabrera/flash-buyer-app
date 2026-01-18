@@ -23,9 +23,11 @@ export type TerminalSseEventName =
 
 export type TerminalSseConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error"
 
+export type TerminalSseReconnectReason = "401" | "network" | "unknown"
+
 export type TerminalSseHandlers = {
   onStatus?: (s: TerminalSseConnectionStatus) => void
-  onReconnect?: (info: { attempt: number; delayMs: number; reason: string }) => void
+  onReconnect?: (info: { attempt: number; delayMs: number; reason: TerminalSseReconnectReason }) => void
   onEvent?: (evt: { type: TerminalSseEventName | "message"; data: unknown; raw: string }) => void
   onError?: (e: unknown) => void
 }
@@ -145,9 +147,8 @@ export function createPosSseClient(opts: PosSseClientOptions) {
           const refreshDelay = Math.max(1, Math.floor(ttlMs * 0.8))
           refreshTimer = window.setTimeout(() => {
             if (stopped) return
-            // swap limpio: cerramos y forzamos ticket nuevo
+            // swap limpio: pedir ticket nuevo sin cerrar el stream actual
             forceNewTicket = true
-            closeEs()
             clearReconnectTimer()
             // disparar connect (sin tight loop; falla -> scheduleReconnect con backoff)
             void connect()
@@ -181,7 +182,18 @@ export function createPosSseClient(opts: PosSseClientOptions) {
       }
     }
 
-    const scheduleReconnect = (reason: "error" | "unauthorized" | "expired") => {
+    const classifyReasonFromStatus = (status: number): TerminalSseReconnectReason => {
+      if (status === 401) return "401"
+      if (status === 0) return "network"
+      return "unknown"
+    }
+
+    const classifyReasonFromError = (e: unknown): TerminalSseReconnectReason => {
+      if (e instanceof TypeError) return "network"
+      return "unknown"
+    }
+
+    const scheduleReconnect = (reason: TerminalSseReconnectReason) => {
       if (stopped) return
       clearReconnectTimer()
 
@@ -197,8 +209,6 @@ export function createPosSseClient(opts: PosSseClientOptions) {
     const connect = async () => {
       if (stopped) return
       clearReconnectTimer()
-      closeEs()
-
       try {
         setStatus(reconnectAttempt > 0 ? "reconnecting" : "connecting")
 
@@ -210,10 +220,11 @@ export function createPosSseClient(opts: PosSseClientOptions) {
           // ticket inválido -> marcar refresh para el próximo intento
           forceNewTicket = true
           setStatus("error")
-          scheduleReconnect("unauthorized")
+          scheduleReconnect("401")
           return
         }
 
+        closeEs()
         es = openTerminalEvents(ticket)
 
         es.onopen = () => {
@@ -231,7 +242,7 @@ export function createPosSseClient(opts: PosSseClientOptions) {
             clearRefreshTimer()
             const check = await preflightTicket()
             if (check.status === 401) forceNewTicket = true
-            scheduleReconnect("error")
+            scheduleReconnect(classifyReasonFromStatus(check.status))
           })()
         }
 
@@ -256,7 +267,7 @@ export function createPosSseClient(opts: PosSseClientOptions) {
       } catch (e) {
         handlers.onError?.(e)
         setStatus("error")
-        scheduleReconnect("error")
+        scheduleReconnect(classifyReasonFromError(e))
       }
     }
 

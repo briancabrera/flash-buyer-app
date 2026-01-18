@@ -32,6 +32,10 @@ let state: TerminalSseState = initialState
 let activeToken: string | null = null
 let unsubscribe: (() => void) | null = null
 let listeners = new Set<Listener>()
+const BOOTSTRAP_GRACE_MS = 2000
+const WAITING_FACE_GRACE_MS = 5000
+let lastSessionSeedAtMs = 0
+let lastSessionClearedAtMs = 0
 
 function emit() {
   for (const l of listeners) l()
@@ -48,6 +52,10 @@ function getSessionId(snapshot: unknown): string | null {
 }
 
 function setActiveSession(snapshot: unknown | null) {
+  if (!snapshot) {
+    lastSessionSeedAtMs = 0
+    lastSessionClearedAtMs = Date.now()
+  }
   setState({
     activeSession: snapshot,
     activeSessionId: snapshot ? getSessionId(snapshot) : null,
@@ -93,7 +101,9 @@ export function startTerminalSse(token: string) {
       // bootstrap: current_session { session: SessionResponse | null }
       if (evt.type === "current_session") {
         if (evt.data && typeof evt.data === "object" && "session" in (evt.data as any)) {
-          setActiveSession((evt.data as any).session ?? null)
+          const next = (evt.data as any).session ?? null
+          if (next) lastSessionSeedAtMs = Date.now()
+          setActiveSession(next)
         }
         return
       }
@@ -110,14 +120,21 @@ export function startTerminalSse(token: string) {
 
         if (evt.type === "session_created") {
           // always switch to the new session
+          lastSessionSeedAtMs = Date.now()
           setActiveSession(snap ?? null)
           return
         }
 
         // session_updated: ignore late updates for old sessions
         if (!state.activeSessionId) {
-          // optional bootstrap: if no active session, accept the update
-          setActiveSession(snap ?? null)
+          const nowMs = Date.now()
+          const recentlySeeded = nowMs - lastSessionSeedAtMs <= BOOTSTRAP_GRACE_MS
+          const snapStatus = snap && typeof snap === "object" ? (snap as any).status : null
+          const waitingFaceRecent =
+            snapStatus === "WAITING_FACE" && nowMs - lastSessionClearedAtMs <= WAITING_FACE_GRACE_MS
+          if (recentlySeeded || waitingFaceRecent) {
+            setActiveSession(snap ?? null)
+          }
           return
         }
 

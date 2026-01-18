@@ -122,6 +122,68 @@ describe("posSseClient", () => {
     vi.useRealTimers()
   })
 
+  it("refresh failure schedules reconnect with backoff and retries ticket", async () => {
+    vi.useFakeTimers()
+    let nowMs = 0
+
+    const createTicket = vi
+      .fn()
+      .mockImplementationOnce(async () => ({ ticket: "t1", expiresAtMs: nowMs + 10_000 }))
+      .mockImplementationOnce(async () => {
+        throw new TypeError("network")
+      })
+      .mockImplementationOnce(async () => ({ ticket: "t2", expiresAtMs: nowMs + 10_000 }))
+
+    const esInstances: FakeEventSource[] = []
+    const eventSourceFactory = (url: string) => {
+      const es = new FakeEventSource(url)
+      esInstances.push(es)
+      return es as unknown as EventSource
+    }
+    const fetchImpl = vi.fn(async () => new Response("", { status: 200 }))
+    const onReconnect = vi.fn()
+
+    const client = createPosSseClient({
+      baseUrl: "http://gw",
+      createTicket,
+      eventSourceFactory,
+      fetchImpl: fetchImpl as any,
+      now: () => nowMs,
+      rand: () => 0.0,
+    })
+
+    const sub = client.subscribeTerminalEvents("tok", { onStatus: () => {}, onReconnect })
+    await flushAsync()
+
+    expect(createTicket).toHaveBeenCalledTimes(1)
+    expect(esInstances.length).toBe(1)
+    expect(esInstances[0].closed).toBe(false)
+
+    // hit refresh (~80% of 10s => 8s) -> fail to refresh
+    nowMs += 8000
+    await vi.advanceTimersByTimeAsync(8000)
+    await flushAsync()
+
+    expect(createTicket).toHaveBeenCalledTimes(2)
+    expect(onReconnect).toHaveBeenCalled()
+    expect(esInstances[0].closed).toBe(false)
+
+    const { delayMs, reason } = onReconnect.mock.calls[0][0]
+    expect(delayMs).toBeGreaterThan(0)
+    expect(reason).toBe("network")
+
+    nowMs += delayMs
+    await vi.advanceTimersByTimeAsync(delayMs)
+    await flushAsync()
+
+    expect(createTicket).toHaveBeenCalledTimes(3)
+    expect(esInstances.length).toBe(2)
+    expect(esInstances[0].closed).toBe(true)
+
+    sub.stop()
+    vi.useRealTimers()
+  })
+
   it("cleanup cancels refresh timer and does not open anything after stop()", async () => {
     vi.useFakeTimers()
     let nowMs = 0
