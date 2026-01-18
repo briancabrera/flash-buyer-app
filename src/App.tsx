@@ -10,6 +10,8 @@ import SelectPaymentMethod from "./pages/SelectPaymentMethod/SelectPaymentMethod
 import ConfirmPayment from "./pages/ConfirmPayment/ConfirmPayment"
 import PaymentPin from "./pages/PaymentPin/PaymentPin"
 import { PaymentProvider } from "./context/PaymentContext"
+import { isPosBuyerEnabled } from "./services/featureFlags"
+import PosDebug from "./pages/PosDebug/PosDebug"
 
 setupIonicReact({
   animated: true,
@@ -19,6 +21,7 @@ setupIonicReact({
 })
 
 const App: React.FC = () => {
+  const posEnabled = isPosBuyerEnabled()
   return (
     <IonApp>
       <PaymentProvider>
@@ -40,6 +43,11 @@ const App: React.FC = () => {
             <Route exact path="/confirm-payment">
               <ConfirmPayment />
             </Route>
+            {posEnabled && (
+              <Route exact path="/pos-debug">
+                <PosDebug />
+              </Route>
+            )}
             <Route exact path="/">
               <Redirect to="/home" />
             </Route>

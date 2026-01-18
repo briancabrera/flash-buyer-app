@@ -36,3 +36,15 @@
   --color: var(--ion-color-primary);
 }
 
+.posButton {
+  margin-top: 12px;
+  font-size: 1.05em;
+  height: 52px;
+  width: 80%;
+  max-width: 300px;
+  --background: rgba(255, 255, 255, 0.18);
+  --color: #ffffff;
+  --border-color: rgba(255, 255, 255, 0.65);
+  --border-style: solid;
+  --border-width: 1px;
+}
