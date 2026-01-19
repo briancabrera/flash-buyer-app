@@ -1,0 +1,125 @@
+.page {
+  --background: var(--ion-color-primary);
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  max-width: 980px;
+  margin: 0 auto;
+  color: #fff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.banner {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+}
+
+.userBadge {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+}
+
+.panel {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bigMessage {
+  font-size: 26px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cameraStage {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 3 / 4;
+  align-self: center;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.cameraControls {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+}
+
+.rewardList {
+  background: transparent;
+}
+
+.rewardName {
+  font-weight: 700;
+}
+
+.rewardDesc {
+  opacity: 0.8;
+  font-size: 13px;
+}
+
+.rewardPoints {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inlineStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voucherBox {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.voucherTitle {
+  font-size: 12px;
+  opacity: 0.8;
+  letter-spacing: 0.1em;
+}
+
+.voucherCode {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 6px;
+}

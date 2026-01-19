@@ -16,6 +16,10 @@ const Home: React.FC = () => {
     router.push("/pos-debug")
   }
 
+  const handlePosMode = () => {
+    router.push("/pos")
+  }
+
   return (
     <IonPage className={styles.homePage}>
       <IonContent fullscreen>
@@ -26,9 +30,14 @@ const Home: React.FC = () => {
             Pagar
           </IonButton>
           {posEnabled && (
-            <IonButton expand="block" size="large" onClick={handlePosDebug} className={styles.posButton}>
-              POS Debug
-            </IonButton>
+            <>
+              <IonButton expand="block" size="large" onClick={handlePosMode} className={styles.posButton}>
+                POS Mode
+              </IonButton>
+              <IonButton expand="block" size="large" onClick={handlePosDebug} className={styles.posButton}>
+                POS Debug
+              </IonButton>
+            </>
           )}
         </div>
       </IonContent>

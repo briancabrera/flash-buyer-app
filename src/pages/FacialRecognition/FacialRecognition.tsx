@@ -15,6 +15,7 @@ import { fetchCurrentPayment } from "../../services/payment.service";
 import { usePayment } from "../../context/PaymentContext";
 import { captureFrameFromVideo } from "../../utils/captureFrame";
 import { clearFaceCaptureCallbacks, getFaceCaptureCallbacks, type FaceCaptureCallbacks } from "../../utils/faceCaptureBridge";
+import { FaceCaptureView } from "../../components/FaceCaptureView/FaceCaptureView";
 import styles from "./FacialRecognition.module.scss";
 
 type Phase = "boot" | "scanning" | "success";
@@ -249,22 +250,7 @@ const FacialRecognition: React.FC = () => {
     <IonPage className={styles.facialRecognitionPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          <video ref={videoRef} autoPlay playsInline muted className={styles.cameraFeed} />
-
-          <motion.div
-            className={styles.overlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: overlayOpacity }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            <div className={styles.frame}>
-              <div className={`${styles.corner} ${styles.tl}`} />
-              <div className={`${styles.corner} ${styles.tr}`} />
-              <div className={`${styles.corner} ${styles.bl}`} />
-              <div className={`${styles.corner} ${styles.br}`} />
-              {phase === "scanning" && <div className={styles.scanBand} />}
-            </div>
-          </motion.div>
+          <FaceCaptureView videoRef={videoRef} overlayOpacity={overlayOpacity} showScanBand={phase === "scanning"} />
 
           {phase === "success" && (
             <motion.div

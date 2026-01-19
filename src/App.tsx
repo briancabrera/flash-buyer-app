@@ -12,6 +12,7 @@ import PaymentPin from "./pages/PaymentPin/PaymentPin"
 import { PaymentProvider } from "./context/PaymentContext"
 import { isPosBuyerEnabled } from "./services/featureFlags"
 import PosDebug from "./pages/PosDebug/PosDebug"
+import PosBuyer from "./pages/PosBuyer/PosBuyer"
 
 setupIonicReact({
   animated: true,
@@ -46,6 +47,11 @@ const App: React.FC = () => {
             {posEnabled && (
               <Route exact path="/pos-debug">
                 <PosDebug />
+              </Route>
+            )}
+            {posEnabled && (
+              <Route exact path="/pos">
+                <PosBuyer />
               </Route>
             )}
             <Route exact path="/">
