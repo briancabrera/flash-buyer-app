@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: POS API
-  version: 2.1.0
+  version: 2.4.0
   description: Point of Sale API for managing cashier sessions, face verification, and transactions
 
 servers:
@@ -242,6 +242,147 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /pos/sessions/{sessionId}/purchase/commit:
+    post:
+      summary: PURCHASE single-commit (amount + confirm + close)
+      description: |
+        Recommended PURCHASE flow. Parses a human amount string into cents, commits the purchase, and closes the session in a single atomic operation.
+        Requires Idempotency-Key header.
+      tags:
+        - Transactions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseCommitRequest'
+      responses:
+        '200':
+          description: Purchase committed and session closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseCommitResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/redeem/select:
+    post:
+      summary: REDEEM select reward (generates voucher_code)
+      description: |
+        Buyer selects a reward for a REDEEM session. Generates a voucher_code and moves the session to READY_TO_CONFIRM.
+        Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemSelectRequest'
+      responses:
+        '200':
+          description: Reward selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/redeem/commit:
+    post:
+      summary: REDEEM commit (confirm + close)
+      description: |
+        Vendor confirms a REDEEM session that is READY_TO_CONFIRM. Commits redemption and closes session in one atomic operation.
+        Requires Idempotency-Key header.
+      tags:
+        - Transactions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Redemption committed and session closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemCommitResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /pos/sessions/{sessionId}/confirm:
     post:
       summary: Confirm and commit transaction
@@ -365,7 +506,7 @@ paths:
       summary: Terminal events stream (SSE)
       description: |
         Server-Sent Events stream for terminal updates. Requires a valid SSE ticket in the query param.
-        Events: connected, terminal_state, session_created, session_updated, session_closed, heartbeat.
+        Events: connected, terminal_state, current_session, session_created, session_updated, session_closed, heartbeat.
       tags:
         - Terminals
       security: []
@@ -479,6 +620,12 @@ components:
           properties:
             user_id:
               type: string
+            first_name:
+              type: string
+              nullable: true
+            last_name:
+              type: string
+              nullable: true
             face_id:
               type: string
               nullable: true
@@ -502,6 +649,9 @@ components:
           properties:
             reward_id:
               type: string
+            reference_code:
+              type: string
+              nullable: true
             voucher_code:
               type: string
         created_at:
@@ -514,6 +664,50 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    PurchaseCommitRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: string
+          description: Human decimal amount string (e.g. "1234", "1234.5", "1234.50")
+          example: "1234.50"
+        currency:
+          type: string
+          nullable: true
+          description: Optional currency code for future use (ignored for now)
+          example: "UYU"
+
+    PurchaseCommitResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConfirmResponse'
+        - type: object
+          required:
+            - session
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionResponse'
+
+    RedeemSelectRequest:
+      type: object
+      required:
+        - reward_id
+      properties:
+        reward_id:
+          type: string
+          description: Reward ID to redeem
+
+    RedeemCommitResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConfirmResponse'
+        - type: object
+          required:
+            - session
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionResponse'
 
     ConfirmResponse:
       type: object

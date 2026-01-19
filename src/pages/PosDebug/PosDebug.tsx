@@ -9,15 +9,18 @@ import {
   IonLabel,
   IonList,
   IonPage,
-  IonTextarea,
   IonText,
+  useIonRouter,
 } from "@ionic/react"
 import styles from "./PosDebug.module.scss"
 import { startTerminalSse, stopTerminalSse, useTerminalSse } from "../../hooks/useTerminalSse"
-import { captureFrameFromVideo, normalizeImageBase64 } from "../../utils/captureFrame"
-import { faceScan, setReward } from "../../services/posSessionsClient"
+import { faceScan } from "../../services/posFaceScanClient"
+import { redeemSelect } from "../../services/posSessionsClient"
 import { listRewardsWithMeta, type PosReward } from "../../services/posRewardsClient"
 import { PosApiError } from "../../services/posGatewayClient"
+import { setFaceCaptureCallbacks } from "../../utils/faceCaptureBridge"
+import { shouldAutoScan } from "../../utils/posAutoScanGuard"
+import { getOrCreateRewardRequest, markRewardRequestStatus } from "../../utils/redeemGuards"
 
 type LogEntry =
   | { ts: number; kind: "sse"; message: string }
@@ -44,22 +47,43 @@ function getSessionMode(snapshot: unknown): string | null {
 }
 
 export default function PosDebug() {
+  const router = useIonRouter()
   const sse = useTerminalSse()
 
   const [token, setToken] = useState<string>(import.meta.env.VITE_TERMINAL_TOKEN ?? "")
-  const [imageInput, setImageInput] = useState<string>("")
+  const [scanState, setScanState] = useState<"idle" | "scanning" | "sending" | "awaiting_sse" | "verified" | "error">(
+    "idle",
+  )
+  const [scanError, setScanError] = useState<{ code?: string; message: string; requestId?: string } | null>(null)
+  const [lastImageBase64Length, setLastImageBase64Length] = useState<number | null>(null)
 
   const [rewards, setRewards] = useState<PosReward[]>([])
   const [selectedRewardId, setSelectedRewardId] = useState<string>("")
+  const [rewardStatus, setRewardStatus] = useState<"idle" | "loading" | "ready" | "sending" | "awaiting_sse" | "done" | "error">(
+    "idle",
+  )
+  const [voucherCode, setVoucherCode] = useState<string>("")
 
   const [logs, setLogs] = useState<LogEntry[]>([])
 
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const [cameraOn, setCameraOn] = useState(false)
+  const lastAutoScanSessionIdRef = useRef<string | null>(null)
+  const pendingScanSessionIdRef = useRef<string | null>(null)
+  const lastPayloadRef = useRef<{ payload: string; idempotencyKey: string } | null>(null)
+  const rewardsBySessionRef = useRef<Map<string, PosReward[]>>(new Map())
+  const rewardRequestBySessionRef = useRef<Map<string, { rewardId: string; idempotencyKey: string; status: "sending" | "done" | "error" }>>(
+    new Map(),
+  )
 
   const sessionStatus = useMemo(() => getSessionStatus(sse.activeSession), [sse.activeSession])
   const sessionMode = useMemo(() => getSessionMode(sse.activeSession), [sse.activeSession])
+  const sessionUser = useMemo(() => {
+    if (!sse.activeSession || typeof sse.activeSession !== "object") return null
+    return (sse.activeSession as any).user ?? null
+  }, [sse.activeSession])
+  const sessionRedeem = useMemo(() => {
+    if (!sse.activeSession || typeof sse.activeSession !== "object") return null
+    return (sse.activeSession as any).redeem ?? null
+  }, [sse.activeSession])
 
   const pushLog = (entry: LogEntry) => {
     setLogs((prev) => [entry, ...prev].slice(0, 100))
@@ -71,37 +95,65 @@ export default function PosDebug() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sse.lastEvent?.raw])
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-      streamRef.current = stream
-      const v = videoRef.current
-      if (v) {
-        v.srcObject = stream as any
-        await v.play()
-      }
-      setCameraOn(true)
-    } catch (e) {
-      pushLog({ ts: Date.now(), kind: "error", message: `Camera error: ${String(e)}` })
-      setCameraOn(false)
-    }
-  }
+  const openCaptureOverlay = () => {
+    if (!sse.activeSessionId) return
+    if (scanState === "scanning" || scanState === "sending" || scanState === "awaiting_sse") return
+    setScanState("scanning")
+    setScanError(null)
+    setFaceCaptureCallbacks({
+      onCapture: async (payload) => {
+        if (!sse.activeSessionId) return
+        const currentSessionId = sse.activeSessionId
+        pendingScanSessionIdRef.current = currentSessionId
+        setScanState("sending")
+        setLastImageBase64Length(payload.base64Length)
+        pushLog({
+          ts: Date.now(),
+          kind: "request",
+          message: `Captured image base64 length=${payload.base64Length} (w=${payload.width} h=${payload.height})`,
+        })
 
-  const stopCamera = () => {
-    const stream = streamRef.current
-    if (stream) stream.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-    const v = videoRef.current
-    if (v) v.srcObject = null as any
-    setCameraOn(false)
-  }
+        const last = lastPayloadRef.current
+        const idempotencyKey =
+          last && last.payload === payload.dataUrl
+            ? last.idempotencyKey
+            : globalThis.crypto?.randomUUID?.() ?? `idem_${Date.now()}_${Math.random().toString(16).slice(2)}`
+        lastPayloadRef.current = { payload: payload.dataUrl, idempotencyKey }
 
-  useEffect(() => {
-    return () => {
-      stopCamera()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+        try {
+          pushLog({
+            ts: Date.now(),
+            kind: "request",
+            message: `POST /pos/sessions/${currentSessionId}/face-scan idem=${idempotencyKey}`,
+          })
+          const res = await faceScan(currentSessionId, token, payload.dataUrl, idempotencyKey)
+          pushLog({
+            ts: Date.now(),
+            kind: "response",
+            message: `OK ${res.status} request_id=${res.requestId ?? "-"} body=${prettyJson(res.data)}`,
+          })
+          setScanState("awaiting_sse")
+        } catch (e) {
+          if (e instanceof PosApiError) {
+            setScanError({ code: e.code, message: e.message, requestId: e.requestId })
+            pushLog({
+              ts: Date.now(),
+              kind: "error",
+              message: `ERR ${e.status} code=${e.code ?? "-"} request_id=${e.requestId ?? "-"} msg=${e.message}`,
+            })
+          } else {
+            setScanError({ message: String(e) })
+            pushLog({ ts: Date.now(), kind: "error", message: String(e) })
+          }
+          setScanState("error")
+        }
+      },
+      onCancel: () => {
+        setScanState("idle")
+      },
+    })
+    router.push("/facial-recognition?capture=1&auto=1", "forward")
+  }
 
   const onStartListening = () => {
     pushLog({ ts: Date.now(), kind: "request", message: "Start Listening (terminal SSE)" })
@@ -118,95 +170,135 @@ export default function PosDebug() {
       pushLog({ ts: Date.now(), kind: "error", message: "No currentSessionId yet (esperá eventos SSE)" })
       return
     }
+    openCaptureOverlay()
+  }
 
-    let imageBase64 = ""
-    try {
-      const v = videoRef.current
-      if (cameraOn && v) {
-        const captured = captureFrameFromVideo(v, { targetWidth: 640, maxBase64Length: 1_000_000 })
-        imageBase64 = captured.imageBase64
-        setImageInput(captured.dataUrl)
-        if (captured.base64Length > 1_000_000) {
+  useEffect(() => {
+    const status = sessionStatus
+    if (!sse.activeSessionId || !status) return
+    if (pendingScanSessionIdRef.current === sse.activeSessionId && status === "FACE_VERIFIED") {
+      setScanState("verified")
+      pushLog({ ts: Date.now(), kind: "sse", message: "FACE_VERIFIED (SSE update)" })
+    }
+  }, [sse.activeSessionId, sessionStatus])
+
+  useEffect(() => {
+    if (!sse.activeSessionId) return
+    const voucher = sessionRedeem?.voucher_code
+    if (typeof voucher === "string" && voucher.length > 0) {
+      setVoucherCode(voucher)
+      setRewardStatus("done")
+      markRewardRequestStatus(rewardRequestBySessionRef.current, sse.activeSessionId, "done")
+    }
+  }, [sse.activeSessionId, sessionRedeem?.voucher_code])
+
+  useEffect(() => {
+    const id = sse.activeSessionId
+    if (!id) {
+      setSelectedRewardId("")
+      setVoucherCode("")
+      setRewardStatus("idle")
+      return
+    }
+    setSelectedRewardId("")
+    setVoucherCode("")
+    setRewardStatus("idle")
+  }, [sse.activeSessionId])
+
+  useEffect(() => {
+    const should = shouldAutoScan({
+      activeSessionId: sse.activeSessionId,
+      activeSessionStatus: sessionStatus,
+      lastAutoScanSessionId: lastAutoScanSessionIdRef.current,
+    })
+    if (!should) return
+    lastAutoScanSessionIdRef.current = sse.activeSessionId
+    openCaptureOverlay()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sse.activeSessionId, sessionStatus])
+
+  useEffect(() => {
+    if (!sse.activeSessionId) return
+    if (sessionMode !== "REDEEM" || sessionStatus !== "FACE_VERIFIED") return
+    if (rewardsBySessionRef.current.has(sse.activeSessionId)) {
+      setRewards(rewardsBySessionRef.current.get(sse.activeSessionId) ?? [])
+      setRewardStatus((prev) => (prev === "idle" ? "ready" : prev))
+      return
+    }
+    const load = async () => {
+      setRewardStatus("loading")
+      try {
+        pushLog({ ts: Date.now(), kind: "request", message: "GET /pos/rewards" })
+        const res = await listRewardsWithMeta(token)
+        rewardsBySessionRef.current.set(sse.activeSessionId as string, res.items)
+        setRewards(res.items)
+        setRewardStatus("ready")
+        pushLog({
+          ts: Date.now(),
+          kind: "response",
+          message: `OK ${res.status} request_id=${res.requestId ?? "-"} items=${res.items.length}`,
+        })
+      } catch (e) {
+        setRewardStatus("error")
+        if (e instanceof PosApiError) {
           pushLog({
             ts: Date.now(),
             kind: "error",
-            message: `Captured base64 too large (${captured.base64Length}). Puede fallar (openapi maxLength=1,000,000).`,
+            message: `ERR ${e.status} code=${e.code ?? "-"} request_id=${e.requestId ?? "-"} msg=${e.message}`,
           })
+        } else {
+          pushLog({ ts: Date.now(), kind: "error", message: String(e) })
         }
-      } else {
-        imageBase64 = normalizeImageBase64(imageInput)
-      }
-
-      if (!imageBase64) {
-        pushLog({ ts: Date.now(), kind: "error", message: "imageBase64 vacío (usá cámara o pegá base64/dataURL)." })
-        return
-      }
-
-      pushLog({ ts: Date.now(), kind: "request", message: `POST /pos/sessions/${sse.activeSessionId}/face-scan` })
-      const res = await faceScan(sse.activeSessionId, { imageBase64 }, token)
-      pushLog({
-        ts: Date.now(),
-        kind: "response",
-        message: `OK ${res.status} request_id=${res.requestId ?? "-"} body=${prettyJson(res.data)}`,
-      })
-    } catch (e) {
-      if (e instanceof PosApiError) {
-        pushLog({
-          ts: Date.now(),
-          kind: "error",
-          message: `ERR ${e.status} code=${e.code ?? "-"} request_id=${e.requestId ?? "-"} msg=${e.message}`,
-        })
-      } else {
-        pushLog({ ts: Date.now(), kind: "error", message: String(e) })
       }
     }
-  }
-
-  const onLoadRewards = async () => {
-    try {
-      pushLog({ ts: Date.now(), kind: "request", message: "GET /pos/rewards" })
-      const res = await listRewardsWithMeta(token)
-      setRewards(res.items)
-      pushLog({
-        ts: Date.now(),
-        kind: "response",
-        message: `OK ${res.status} request_id=${res.requestId ?? "-"} items=${res.items.length}`,
-      })
-    } catch (e) {
-      if (e instanceof PosApiError) {
-        pushLog({
-          ts: Date.now(),
-          kind: "error",
-          message: `ERR ${e.status} code=${e.code ?? "-"} request_id=${e.requestId ?? "-"} msg=${e.message}`,
-        })
-      } else {
-        pushLog({ ts: Date.now(), kind: "error", message: String(e) })
-      }
-    }
-  }
+    void load()
+  }, [sse.activeSessionId, sessionMode, sessionStatus, token])
 
   const onSelectReward = async () => {
     if (!sse.activeSessionId) {
       pushLog({ ts: Date.now(), kind: "error", message: "No currentSessionId yet (esperá eventos SSE)" })
       return
     }
+    if (rewardStatus === "sending" || rewardStatus === "awaiting_sse") {
+      return
+    }
     if (!selectedRewardId) {
       pushLog({ ts: Date.now(), kind: "error", message: "Seleccioná un reward primero." })
       return
     }
+    if (rewardStatus === "done" || voucherCode) {
+      pushLog({ ts: Date.now(), kind: "error", message: "Voucher ya generado para esta sesión." })
+      return
+    }
     try {
+      const { request, shouldSend } = getOrCreateRewardRequest({
+        map: rewardRequestBySessionRef.current,
+        sessionId: sse.activeSessionId,
+        rewardId: selectedRewardId,
+        createKey: () => globalThis.crypto?.randomUUID?.() ?? `idem_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      })
+
+      if (!shouldSend) {
+        pushLog({ ts: Date.now(), kind: "error", message: "Reward ya seleccionado para esta sesión." })
+        return
+      }
+
       pushLog({
         ts: Date.now(),
         kind: "request",
-        message: `POST /pos/sessions/${sse.activeSessionId}/reward reward_id=${selectedRewardId}`,
+        message: `POST /pos/sessions/${sse.activeSessionId}/reward reward_id=${selectedRewardId} idem=${request.idempotencyKey}`,
       })
-      const res = await setReward(sse.activeSessionId, { reward_id: selectedRewardId }, token)
+      setRewardStatus("sending")
+      const res = await redeemSelect(sse.activeSessionId, { reward_id: selectedRewardId }, token, request.idempotencyKey)
       pushLog({
         ts: Date.now(),
         kind: "response",
         message: `OK ${res.status} request_id=${res.requestId ?? "-"} body=${prettyJson(res.data)}`,
       })
+      setRewardStatus("awaiting_sse")
     } catch (e) {
+      if (sse.activeSessionId) markRewardRequestStatus(rewardRequestBySessionRef.current, sse.activeSessionId, "error")
+      setRewardStatus("error")
       if (e instanceof PosApiError) {
         pushLog({
           ts: Date.now(),
@@ -254,6 +346,14 @@ export default function PosDebug() {
                   Session: <b>{sse.activeSessionId ?? "-"}</b> · status: <b>{sessionStatus ?? "-"}</b> · mode:{" "}
                   <b>{sessionMode ?? "-"}</b>
                 </div>
+                {sessionUser && (
+                  <div>
+                    User:{" "}
+                    <b>
+                      {sessionUser.first_name ?? ""} {sessionUser.last_name ?? ""}
+                    </b>
+                  </div>
+                )}
               </IonText>
               <pre className={styles.mono}>{prettyJson(sse.activeSession)}</pre>
             </IonCardContent>
@@ -265,42 +365,41 @@ export default function PosDebug() {
                 <h2>WAITING_FACE</h2>
 
                 <div className={styles.row}>
-                  {!cameraOn ? (
-                    <IonButton onClick={startCamera}>Start camera</IonButton>
-                  ) : (
-                    <IonButton color="medium" onClick={stopCamera}>
-                      Stop camera
-                    </IonButton>
-                  )}
                   <IonButton onClick={onScanFaceNow}>Scan Face Now</IonButton>
                 </div>
 
-                {cameraOn && (
-                  <div className={styles.videoWrap}>
-                    <video ref={videoRef} className={styles.video} playsInline muted />
-                  </div>
-                )}
+                <div className={styles.row}>
+                  <span className={styles.pill}>scan: {scanState}</span>
+                  {lastImageBase64Length !== null && (
+                    <span className={styles.pill}>base64Length: {lastImageBase64Length}</span>
+                  )}
+                </div>
 
-                <IonItem lines="none">
-                  <IonLabel position="stacked">imageBase64 (pegá base64 o dataURL como fallback)</IonLabel>
-                  <IonTextarea
-                    value={imageInput}
-                    onIonInput={(e) => setImageInput(String(e.detail.value ?? ""))}
-                    autoGrow
-                    rows={5}
-                  />
-                </IonItem>
+                {scanError && (
+                  <IonText color="danger">
+                    <div className={styles.mono}>
+                      err code={scanError.code ?? "-"} request_id={scanError.requestId ?? "-"} msg={scanError.message}
+                    </div>
+                    {scanError.code === "BIOMETRIC_UNAVAILABLE" && <div>Biometric service unavailable.</div>}
+                    {scanError.code === "BIOMETRIC_TIMEOUT" && <div>Biometric service timeout. Try again.</div>}
+                    {scanError.code === "VALIDATION_ERROR" && lastImageBase64Length !== null && (
+                      <div>
+                        imageBase64 length={lastImageBase64Length} (ajustá quality/width si excede 1,000,000)
+                      </div>
+                    )}
+                  </IonText>
+                )}
               </IonCardContent>
             </IonCard>
           )}
 
-          {sessionMode === "REDEEM" && (
+          {sessionMode === "REDEEM" && sessionStatus === "FACE_VERIFIED" && (
             <IonCard>
               <IonCardContent>
-                <h2>REDEEM</h2>
+                <h2>Select Reward</h2>
                 <div className={styles.row}>
-                  <IonButton onClick={onLoadRewards}>Load rewards</IonButton>
-                  <IonButton onClick={onSelectReward} disabled={!selectedRewardId || !sse.activeSessionId}>
+                  <span className={styles.pill}>rewards: {rewardStatus}</span>
+                  <IonButton onClick={onSelectReward} disabled={!selectedRewardId || rewardStatus === "sending" || rewardStatus === "awaiting_sse"}>
                     Select reward
                   </IonButton>
                 </div>
@@ -309,20 +408,45 @@ export default function PosDebug() {
                   {rewards.map((r) => (
                     <IonItem
                       key={r.id}
-                      button
-                      onClick={() => setSelectedRewardId(r.id)}
+                      button={rewardStatus !== "sending" && rewardStatus !== "awaiting_sse" && rewardStatus !== "done"}
+                      disabled={rewardStatus === "sending" || rewardStatus === "awaiting_sse" || rewardStatus === "done"}
+                      onClick={() => {
+                        if (rewardStatus === "sending" || rewardStatus === "awaiting_sse" || rewardStatus === "done") return
+                        setSelectedRewardId(r.id)
+                      }}
                       color={selectedRewardId === r.id ? "light" : undefined}
                     >
                       <IonLabel>
                         <div>
                           <b>{r.name}</b>
                         </div>
+                        {r.description && <div>{String(r.description).slice(0, 80)}</div>}
                         <div>cost_points: {r.cost_points}</div>
                         <div className={styles.mono}>id: {r.id}</div>
                       </IonLabel>
                     </IonItem>
                   ))}
                 </IonList>
+
+                {rewardStatus === "awaiting_sse" && <IonText>Listo, confirmá en caja…</IonText>}
+                {voucherCode && (
+                  <div className={styles.voucherBox}>
+                    <div className={styles.voucherTitle}>VOUCHER CODE</div>
+                    <div className={styles.voucherCode}>{voucherCode}</div>
+                    <IonButton onClick={() => router.push("/home", "back")}>Done</IonButton>
+                  </div>
+                )}
+              </IonCardContent>
+            </IonCard>
+          )}
+
+          {sessionMode === "PURCHASE" && sessionStatus === "FACE_VERIFIED" && (
+            <IonCard>
+              <IonCardContent>
+                <h2>Verificado</h2>
+                <div className={styles.row}>
+                  <IonButton onClick={() => router.push("/home", "back")}>Done</IonButton>
+                </div>
               </IonCardContent>
             </IonCard>
           )}

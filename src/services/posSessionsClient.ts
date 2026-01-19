@@ -23,10 +23,25 @@ export async function setReward(
   sessionId: string,
   payload: { reward_id: string },
   token: string,
+  idempotencyKey?: string,
 ): Promise<{ data: unknown; status: number; requestId?: string }> {
   const res = await posGatewayClient.request("POST", `/pos/sessions/${sessionId}/reward`, {
     token,
-    idempotencyKey: newIdempotencyKey(),
+    idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
+    body: payload,
+  })
+  return res
+}
+
+export async function redeemSelect(
+  sessionId: string,
+  payload: { reward_id: string },
+  token: string,
+  idempotencyKey?: string,
+): Promise<{ data: unknown; status: number; requestId?: string }> {
+  const res = await posGatewayClient.request("POST", `/pos/sessions/${sessionId}/redeem/select`, {
+    token,
+    idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
     body: payload,
   })
   return res

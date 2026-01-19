@@ -60,9 +60,8 @@ npm run test.unit
    - Setear env vars: `VITE_USE_POS_BUYER=1`, `VITE_GATEWAY_URL`, `VITE_TERMINAL_TOKEN`
    - Entrar a **Home → POS Debug** (ruta `/pos-debug`)
    - Click **Start Listening** (abre SSE terminal ticket + EventSource)
-   - Cuando el snapshot de sesión muestre `status: WAITING_FACE`, click **Scan Face Now**
-     - Opción A: usar cámara (Start camera → Scan Face Now)
-     - Opción B: pegar `imageBase64` o `dataURL` en el textarea y Scan
+  - Cuando el snapshot de sesión muestre `status: WAITING_FACE`, se abre automáticamente el overlay de cámara y se dispara `/face-scan` al obtener la imagen.
+    - La UI espera `FACE_VERIFIED` por SSE para marcar éxito (no asume HTTP 200).
    - Si `mode === REDEEM`:
      - Click **Load rewards** (GET `/pos/rewards`)
      - Elegir reward y click **Select reward** (POST `/pos/sessions/:id/reward`)

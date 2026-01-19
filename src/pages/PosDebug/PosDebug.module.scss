@@ -56,3 +56,23 @@
   font-size: 12px;
 }
 
+.voucherBox {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.voucherTitle {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  opacity: 0.7;
+}
+
+.voucherCode {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 6px 0 10px;
+}
+

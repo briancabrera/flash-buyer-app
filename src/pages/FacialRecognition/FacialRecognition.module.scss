@@ -19,6 +19,37 @@
   z-index: 0;
 }
 
+.captureControls {
+  position: absolute;
+  inset: auto 0 24px 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.captureRow {
+  display: flex;
+  gap: 12px;
+}
+
+.captureError {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.captureHint {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
 /* ===== Overlay minimal ===== */
 .overlay {
   position: absolute;
