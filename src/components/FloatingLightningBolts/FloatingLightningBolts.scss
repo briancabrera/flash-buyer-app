@@ -1,5 +1,5 @@
 .floating-bolts {
-  background: #3880ff;
+  background: radial-gradient(circle at top right, #5c9fff 0%, #3880ff 55%, #2d66cc 100%);
   position: fixed;
   top: 0;
   left: 0;
@@ -11,6 +11,7 @@
 }
 
 .bolt {
+  display: none;
   position: absolute;
   color: rgba(255, 255, 0, 0.6); // Adjust the color and opacity here if needed
 }
