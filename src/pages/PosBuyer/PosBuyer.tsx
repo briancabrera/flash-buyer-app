@@ -10,6 +10,7 @@ import {
   IonSpinner,
   IonText,
 } from "@ionic/react"
+import { AnimatePresence, motion } from "framer-motion"
 import styles from "./PosBuyer.module.scss"
 import { startTerminalSse, stopTerminalSse, useTerminalSse } from "../../hooks/useTerminalSse"
 import { FaceCaptureView } from "../../components/FaceCaptureView/FaceCaptureView"
@@ -49,6 +50,44 @@ function errorToMessage(err: PosApiError | Error): string {
   return err.message
 }
 
+function SuccessCheck() {
+  const r = 24
+  const circ = 2 * Math.PI * r
+  return (
+    <div className={styles.checkWrap} aria-hidden="true">
+      <motion.svg
+        className={styles.checkmark}
+        viewBox="0 0 52 52"
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+      >
+        <circle className={styles.checkCircleBase} cx="26" cy="26" r={r} fill="none" />
+        <motion.circle
+          className={styles.checkCircle}
+          cx="26"
+          cy="26"
+          r={r}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          initial={{ strokeDashoffset: circ }}
+          animate={{ strokeDashoffset: 0 }}
+          transition={{ duration: 0.65, ease: "easeOut" }}
+        />
+        <motion.path
+          className={styles.check}
+          fill="none"
+          d="M14 27 l8 8 l16 -16"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.22 }}
+        />
+      </motion.svg>
+    </div>
+  )
+}
+
 export default function PosBuyer() {
   const sse = useTerminalSse()
   const token = import.meta.env.VITE_TERMINAL_TOKEN ?? ""
@@ -74,6 +113,14 @@ export default function PosBuyer() {
     if (!sse.activeSession || typeof sse.activeSession !== "object") return null
     return (sse.activeSession as any).user ?? null
   }, [sse.activeSession])
+  const displayName = useMemo(() => {
+    const first = (sessionUser?.first_name ?? "").trim()
+    return first || null
+  }, [sessionUser?.first_name])
+  const lastKnownNameRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (displayName) lastKnownNameRef.current = displayName
+  }, [displayName])
   const redeemSnapshot = useMemo(() => {
     if (!sse.activeSession || typeof sse.activeSession !== "object") return null
     return (sse.activeSession as any).redeem ?? null
@@ -213,110 +260,216 @@ export default function PosBuyer() {
 
   const showReconnect = sse.connectionStatus === "reconnecting" || sse.connectionStatus === "error"
 
+  const motionProps = {
+    initial: { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -12 },
+    transition: { duration: 0.25, ease: "easeOut" },
+  } as const
+
+  const contentStagger = {
+    initial: {},
+    animate: { transition: { staggerChildren: 0.06, delayChildren: 0.02 } },
+    exit: { transition: { staggerChildren: 0.03, staggerDirection: -1 } },
+  } as const
+
+  const item = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" } },
+    exit: { opacity: 0, y: -8, transition: { duration: 0.16, ease: "easeIn" } },
+  } as const
+
   return (
     <IonPage className={styles.page}>
       <IonContent fullscreen>
         <div className={styles.container}>
           <div className={styles.header}>
-            <div className={styles.title}>POS Buyer</div>
-            {showReconnect && <div className={styles.banner}>Reconectando…</div>}
-          </div>
-
-          {sessionUser && (
-            <div className={styles.userBadge}>
-              {sessionUser.first_name ?? ""} {sessionUser.last_name ?? ""}
+            <div className={styles.title}>BioPOS 0.0.1</div>
+            <div className={styles.bannerSlot}>
+              <div className={`${styles.banner} ${showReconnect ? "" : styles.bannerHidden}`}>Reconectando…</div>
             </div>
-          )}
+          </div>
 
           {!token && <IonText color="danger">Falta VITE_TERMINAL_TOKEN</IonText>}
 
-          {buyerState === "idle" && (
-            <div className={styles.panel}>
-              <div className={styles.bigMessage}>Esperando al vendedor…</div>
-            </div>
-          )}
-
-          {buyerState === "waiting_face" && (
-            <div className={styles.panel}>
-              <div className={styles.bigMessage}>Mirá a la cámara</div>
-              <div className={styles.cameraStage}>
-                <FaceCaptureView videoRef={videoRef} overlayOpacity={1} showScanBand={scanState === "scanning"} />
-                <div className={styles.cameraControls}>
-                  <IonButton onClick={onScan} disabled={!canStartFaceScan(scanState)}>
-                    {scanState === "scanning" ? "Escaneando…" : "Escanear"}
-                  </IonButton>
-                </div>
-              </div>
-              {scanState === "sent" && <IonText>Verificando identidad…</IonText>}
-              {scanError && <IonText color="danger">{scanError}</IonText>}
-            </div>
-          )}
-
-          {buyerState === "face_verified_purchase" && (
-            <div className={styles.panel}>
-              <div className={styles.bigMessage}>Identidad verificada</div>
-              <div>Esperá al cajero…</div>
-            </div>
-          )}
-
-          {buyerState === "face_verified_redeem" && (
-            <div className={styles.panel}>
-              <div className={styles.bigMessage}>Elegí tu recompensa</div>
-              {rewardStatus === "loading" && (
-                <div className={styles.skeletonList}>
-                  <IonSkeletonText animated style={{ width: "100%", height: "48px" }} />
-                  <IonSkeletonText animated style={{ width: "100%", height: "48px" }} />
-                  <IonSkeletonText animated style={{ width: "100%", height: "48px" }} />
-                </div>
+          <div className={styles.main}>
+            <AnimatePresence mode="wait">
+              {buyerState === "idle" && (
+                <motion.div
+                  key="idle"
+                  className={`${styles.heroCard} ${styles.center}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                  <motion.div className={styles.cardTitle} variants={item}>
+                    Esperando al vendedor…
+                  </motion.div>
+                  <motion.div className={styles.cardText} variants={item}>
+                    Por favor, aguardá al cajero.
+                  </motion.div>
+                </motion.div>
               )}
-              {rewardStatus === "ready" && (
-                <IonList className={styles.rewardList}>
-                  {rewards.map((r) => (
-                    <IonItem
-                      key={r.id}
-                      button
-                      disabled={rewardStatus === "sending" || rewardStatus === "awaiting_sse" || rewardStatus === "done"}
-                      onClick={() => onSelectReward(r.id)}
-                      color={selectedRewardId === r.id ? "light" : undefined}
-                    >
-                      <IonLabel>
-                        <div className={styles.rewardName}>{r.name}</div>
-                        {r.description && <div className={styles.rewardDesc}>{String(r.description)}</div>}
-                        <div className={styles.rewardPoints}>Puntos: {r.cost_points}</div>
-                      </IonLabel>
-                    </IonItem>
-                  ))}
-                </IonList>
-              )}
-              {rewardStatus === "sending" && (
-                <div className={styles.inlineStatus}>
-                  <IonSpinner name="dots" />
-                  <span>Enviando selección…</span>
-                </div>
-              )}
-              {rewardStatus === "awaiting_sse" && <div>Reward seleccionada, espere al cajero…</div>}
-            </div>
-          )}
 
-          {buyerState === "reward_selected" && (
-            <div className={styles.panel}>
-              <div className={styles.bigMessage}>Reward seleccionada</div>
-              <div>Esperá al cajero…</div>
-              {voucherCode && (
-                <div className={styles.voucherBox}>
-                  <div className={styles.voucherTitle}>Tu código</div>
-                  <div className={styles.voucherCode}>{voucherCode}</div>
-                </div>
-              )}
-            </div>
-          )}
+              {buyerState === "waiting_face" && (
+                <motion.div key="waiting_face" className={styles.scanStage} {...motionProps} variants={contentStagger}>
+                  <motion.div className={styles.scanHeader} variants={item}>
+                    <div className={styles.scanTitle}>Mirá a la cámara</div>
+                    <div className={styles.scanSubtitle}>Ubicá tu cara dentro del marco.</div>
+                  </motion.div>
 
-          {buyerState === "done" && (
-            <div className={styles.panel}>
-              <div className={styles.bigMessage}>Sesión finalizada</div>
-              <div>Gracias.</div>
-            </div>
-          )}
+                  <motion.div
+                    className={styles.cameraStagePremium}
+                    variants={item}
+                    animate={{
+                      scale: scanState === "scanning" ? 0.995 : 1,
+                      transition: { duration: 0.25, ease: "easeOut" },
+                    }}
+                  >
+                    <FaceCaptureView videoRef={videoRef} overlayOpacity={1} showScanBand={scanState === "scanning"} />
+                  </motion.div>
+
+                  <motion.div className={styles.sheetCard} variants={item}>
+                    <div className={styles.sheetRow}>
+                      <IonButton className={styles.flashButton} onClick={onScan} disabled={!canStartFaceScan(scanState)}>
+                        {scanState === "scanning" ? "Escaneando…" : "Escanear"}
+                      </IonButton>
+                    </div>
+
+                    {scanState === "sent" && (
+                      <div className={`${styles.inlineStatus} ${styles.cardText}`}>
+                        <IonSpinner name="dots" />
+                        <span>Verificando identidad…</span>
+                      </div>
+                    )}
+                    {scanError && (
+                      <IonText color="danger">
+                        <div className={styles.cardText}>{scanError}</div>
+                      </IonText>
+                    )}
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {buyerState === "face_verified_purchase" && (
+                <motion.div
+                  key="verified_purchase"
+                  className={`${styles.heroCard} ${styles.center}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                <motion.div variants={item}>
+                  <SuccessCheck />
+                </motion.div>
+                  <motion.div className={styles.greeting} variants={item}>
+                    {`Hola${lastKnownNameRef.current ? ` ${lastKnownNameRef.current}` : ""}!`}
+                  </motion.div>
+                <motion.div className={styles.heroTitle} variants={item}>
+                  ¡Listo!
+                </motion.div>
+                <motion.div className={styles.subTitle} variants={item}>
+                  Identidad verificada
+                </motion.div>
+                <motion.div className={styles.cardText} variants={item}>
+                  Perfecto. Esperá al cajero para continuar.
+                </motion.div>
+                </motion.div>
+              )}
+
+              {buyerState === "face_verified_redeem" && (
+                <motion.div key="verified_redeem" className={styles.heroCard} {...motionProps} variants={contentStagger}>
+                <motion.div variants={item}>
+                  <SuccessCheck />
+                </motion.div>
+                  <motion.div className={styles.greeting} variants={item}>
+                    {`Hola${lastKnownNameRef.current ? ` ${lastKnownNameRef.current}` : ""}!`}
+                  </motion.div>
+                <motion.div className={styles.heroTitle} variants={item}>
+                    Elegí tu recompensa
+                  </motion.div>
+                  <motion.div className={styles.cardText} variants={item}>
+                    Seleccioná una opción para canjear.
+                  </motion.div>
+
+                  {rewardStatus === "loading" && (
+                    <div className={styles.skeletonList}>
+                      <IonSkeletonText animated style={{ width: "100%", height: "56px" }} />
+                      <IonSkeletonText animated style={{ width: "100%", height: "56px" }} />
+                      <IonSkeletonText animated style={{ width: "100%", height: "56px" }} />
+                    </div>
+                  )}
+
+                  {rewardStatus === "ready" && (
+                    <IonList className={styles.rewardList}>
+                      {rewards.map((r) => (
+                        <IonItem
+                          key={r.id}
+                          button
+                          disabled={
+                            rewardStatus === "sending" || rewardStatus === "awaiting_sse" || rewardStatus === "done"
+                          }
+                          onClick={() => onSelectReward(r.id)}
+                          color={selectedRewardId === r.id ? "light" : undefined}
+                        >
+                          <IonLabel>
+                            <div className={styles.rewardName}>{r.name}</div>
+                            {r.description && <div className={styles.rewardDesc}>{String(r.description)}</div>}
+                            <div className={styles.rewardPoints}>{r.cost_points} pts</div>
+                          </IonLabel>
+                        </IonItem>
+                      ))}
+                    </IonList>
+                  )}
+
+                  {rewardStatus === "sending" && (
+                    <div className={`${styles.inlineStatus} ${styles.cardText}`}>
+                      <IonSpinner name="dots" />
+                      <span>Enviando selección…</span>
+                    </div>
+                  )}
+
+                  {rewardStatus === "awaiting_sse" && <div className={styles.cardText}>Listo, confirmá en caja…</div>}
+                </motion.div>
+              )}
+
+              {buyerState === "reward_selected" && (
+                <motion.div
+                  key="reward_selected"
+                  className={`${styles.heroCard} ${styles.center}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                  <motion.div className={styles.cardTitle} variants={item}>
+                    Reward seleccionada
+                  </motion.div>
+                  <motion.div className={styles.cardText} variants={item}>
+                    Listo. Esperá al cajero…
+                  </motion.div>
+                  {voucherCode && (
+                    <motion.div className={styles.voucherBox} variants={item}>
+                      <div className={styles.voucherTitle}>Tu código</div>
+                      <div className={styles.voucherCode}>{voucherCode}</div>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+
+              {buyerState === "done" && (
+                <motion.div
+                  key="done"
+                  className={`${styles.heroCard} ${styles.center}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                  <motion.div className={styles.cardTitle} variants={item}>
+                    {lastKnownNameRef.current ? `${lastKnownNameRef.current}, gracias por tu compra` : "Gracias por tu compra"}
+                  </motion.div>
+                  <motion.div className={styles.cardText} variants={item}>
+                    Podés continuar con el cajero.
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </IonContent>
     </IonPage>
