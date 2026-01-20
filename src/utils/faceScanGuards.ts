@@ -14,5 +14,5 @@ export function getFaceScanAttempt(args: {
 }
 
 export function canStartFaceScan(scanState: "idle" | "scanning" | "sent" | "error"): boolean {
-  return scanState !== "scanning"
+  return scanState === "idle" || scanState === "error"
 }

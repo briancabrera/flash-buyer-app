@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   IonButton,
   IonContent,
@@ -88,6 +88,28 @@ function SuccessCheck() {
   )
 }
 
+function ThanksHeart() {
+  return (
+    <div className={styles.thanksWrap} aria-hidden="true">
+      <motion.svg
+        className={styles.thanksMark}
+        viewBox="0 0 64 64"
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+      >
+        <motion.path
+          className={styles.thanksHeart}
+          d="M32 55s-18-10.7-24.2-22.3C3.1 23.8 7.8 14 17.7 14c5.2 0 9.2 3 11.4 6.4C31.3 17 35.3 14 40.5 14c9.9 0 14.6 9.8 9.9 18.7C44 44.3 32 55 32 55z"
+          initial={{ scale: 0.92 }}
+          animate={{ scale: [0.98, 1.05, 0.99, 1.03, 1] }}
+          transition={{ duration: 1.15, ease: "easeInOut" }}
+        />
+      </motion.svg>
+    </div>
+  )
+}
+
 export default function PosBuyer() {
   const sse = useTerminalSse()
   const token = import.meta.env.VITE_TERMINAL_TOKEN ?? ""
@@ -121,6 +143,40 @@ export default function PosBuyer() {
   useEffect(() => {
     if (displayName) lastKnownNameRef.current = displayName
   }, [displayName])
+
+  const prevActiveSessionIdRef = useRef<string | null>(null)
+  const [showThanks, setShowThanks] = useState(false)
+  const thanksTimerRef = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    const prev = prevActiveSessionIdRef.current
+    const next = activeSessionId
+    prevActiveSessionIdRef.current = next
+
+    // When session becomes null after having a session, show "thanks" for 2s, then return to idle.
+    if (prev && !next) {
+      setShowThanks(true)
+      if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
+      thanksTimerRef.current = window.setTimeout(() => {
+        setShowThanks(false)
+        thanksTimerRef.current = null
+      }, 2000)
+      return
+    }
+
+    // If a new session starts, cancel thanks immediately.
+    if (next) {
+      if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
+      thanksTimerRef.current = null
+      setShowThanks(false)
+    }
+  }, [activeSessionId])
+
+  useEffect(() => {
+    return () => {
+      if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
+    }
+  }, [])
   const redeemSnapshot = useMemo(() => {
     if (!sse.activeSession || typeof sse.activeSession !== "object") return null
     return (sse.activeSession as any).redeem ?? null
@@ -259,6 +315,8 @@ export default function PosBuyer() {
   }
 
   const showReconnect = sse.connectionStatus === "reconnecting" || sse.connectionStatus === "error"
+  const scanCtaLabel = "Escanear"
+  const isBusyScan = scanState === "scanning" || scanState === "sent"
 
   const motionProps = {
     initial: { opacity: 0, y: 12 },
@@ -294,23 +352,44 @@ export default function PosBuyer() {
 
           <div className={styles.main}>
             <AnimatePresence mode="wait">
-              {buyerState === "idle" && (
+              {(showThanks || buyerState === "done") && (
                 <motion.div
-                  key="idle"
-                  className={`${styles.heroCard} ${styles.center}`}
+                  key={`thanks_${showThanks ? "overlay" : "done"}_${activeSessionId ?? "null"}`}
+                  className={`${styles.successStage} ${styles.center}`}
                   {...motionProps}
                   variants={contentStagger}
                 >
-                  <motion.div className={styles.cardTitle} variants={item}>
+                  <motion.div variants={item}>
+                    <ThanksHeart />
+                  </motion.div>
+                  <motion.div className={styles.successTitle} variants={item}>
+                    {lastKnownNameRef.current
+                      ? `${lastKnownNameRef.current}, gracias por tu compra`
+                      : "Gracias por tu compra"}
+                  </motion.div>
+                  <motion.div className={styles.successText} variants={item}>
+                    ¡Que disfrutes Flash!
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {!showThanks && buyerState === "idle" && (
+                <motion.div
+                  key="idle"
+                  className={`${styles.waitingStage} ${styles.center}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                  <motion.div className={styles.waitingTitle} variants={item}>
                     Esperando al vendedor…
                   </motion.div>
-                  <motion.div className={styles.cardText} variants={item}>
+                  <motion.div className={styles.waitingText} variants={item}>
                     Por favor, aguardá al cajero.
                   </motion.div>
                 </motion.div>
               )}
 
-              {buyerState === "waiting_face" && (
+              {!showThanks && buyerState === "waiting_face" && (
                 <motion.div key="waiting_face" className={styles.scanStage} {...motionProps} variants={contentStagger}>
                   <motion.div className={styles.scanHeader} variants={item}>
                     <div className={styles.scanTitle}>Mirá a la cámara</div>
@@ -325,22 +404,27 @@ export default function PosBuyer() {
                       transition: { duration: 0.25, ease: "easeOut" },
                     }}
                   >
-                    <FaceCaptureView videoRef={videoRef} overlayOpacity={1} showScanBand={scanState === "scanning"} />
+                    <FaceCaptureView videoRef={videoRef} overlayOpacity={1} isScanning={scanState === "scanning"} />
                   </motion.div>
 
                   <motion.div className={styles.sheetCard} variants={item}>
                     <div className={styles.sheetRow}>
-                      <IonButton className={styles.flashButton} onClick={onScan} disabled={!canStartFaceScan(scanState)}>
-                        {scanState === "scanning" ? "Escaneando…" : "Escanear"}
+                      <IonButton
+                        className={`${styles.flashButton} ${
+                          scanState === "scanning"
+                            ? styles.flashButtonScanning
+                            : scanState === "sent"
+                              ? styles.flashButtonVerifying
+                              : ""
+                        }`}
+                        onClick={onScan}
+                        disabled={!canStartFaceScan(scanState)}
+                        expand="block"
+                      >
+                        {isBusyScan ? <IonSpinner className={styles.ctaSpinner} name="dots" /> : scanCtaLabel}
                       </IonButton>
                     </div>
 
-                    {scanState === "sent" && (
-                      <div className={`${styles.inlineStatus} ${styles.cardText}`}>
-                        <IonSpinner name="dots" />
-                        <span>Verificando identidad…</span>
-                      </div>
-                    )}
                     {scanError && (
                       <IonText color="danger">
                         <div className={styles.cardText}>{scanError}</div>
@@ -350,32 +434,26 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {buyerState === "face_verified_purchase" && (
+              {!showThanks && buyerState === "face_verified_purchase" && (
                 <motion.div
                   key="verified_purchase"
-                  className={`${styles.heroCard} ${styles.center}`}
+                className={`${styles.successStage} ${styles.center}`}
                   {...motionProps}
                   variants={contentStagger}
                 >
                 <motion.div variants={item}>
                   <SuccessCheck />
                 </motion.div>
-                  <motion.div className={styles.greeting} variants={item}>
-                    {`Hola${lastKnownNameRef.current ? ` ${lastKnownNameRef.current}` : ""}!`}
-                  </motion.div>
-                <motion.div className={styles.heroTitle} variants={item}>
-                  ¡Listo!
+                <motion.div className={styles.successTitle} variants={item}>
+                  {lastKnownNameRef.current ? `¡Listo, ${lastKnownNameRef.current}!` : "¡Listo!"}
                 </motion.div>
-                <motion.div className={styles.subTitle} variants={item}>
-                  Identidad verificada
-                </motion.div>
-                <motion.div className={styles.cardText} variants={item}>
-                  Perfecto. Esperá al cajero para continuar.
+                <motion.div className={styles.successText} variants={item}>
+                  Esperá al cajero para continuar.
                 </motion.div>
                 </motion.div>
               )}
 
-              {buyerState === "face_verified_redeem" && (
+              {!showThanks && buyerState === "face_verified_redeem" && (
                 <motion.div key="verified_redeem" className={styles.heroCard} {...motionProps} variants={contentStagger}>
                 <motion.div variants={item}>
                   <SuccessCheck />
@@ -431,7 +509,7 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {buyerState === "reward_selected" && (
+              {!showThanks && buyerState === "reward_selected" && (
                 <motion.div
                   key="reward_selected"
                   className={`${styles.heroCard} ${styles.center}`}
@@ -453,21 +531,6 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {buyerState === "done" && (
-                <motion.div
-                  key="done"
-                  className={`${styles.heroCard} ${styles.center}`}
-                  {...motionProps}
-                  variants={contentStagger}
-                >
-                  <motion.div className={styles.cardTitle} variants={item}>
-                    {lastKnownNameRef.current ? `${lastKnownNameRef.current}, gracias por tu compra` : "Gracias por tu compra"}
-                  </motion.div>
-                  <motion.div className={styles.cardText} variants={item}>
-                    Podés continuar con el cajero.
-                  </motion.div>
-                </motion.div>
-              )}
             </AnimatePresence>
           </div>
         </div>

@@ -18,6 +18,7 @@ describe("faceScanGuards", () => {
 
   it("blocks scan while scanning", () => {
     expect(canStartFaceScan("scanning")).toBe(false)
+    expect(canStartFaceScan("sent")).toBe(false)
     expect(canStartFaceScan("idle")).toBe(true)
   })
 })

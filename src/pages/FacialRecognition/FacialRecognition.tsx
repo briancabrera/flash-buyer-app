@@ -250,7 +250,7 @@ const FacialRecognition: React.FC = () => {
     <IonPage className={styles.facialRecognitionPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          <FaceCaptureView videoRef={videoRef} overlayOpacity={overlayOpacity} showScanBand={phase === "scanning"} />
+          <FaceCaptureView videoRef={videoRef} overlayOpacity={overlayOpacity} isScanning={phase === "scanning"} />
 
           {phase === "success" && (
             <motion.div
