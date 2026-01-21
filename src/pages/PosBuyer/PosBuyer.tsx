@@ -172,33 +172,51 @@ export default function PosBuyer() {
     if (displayName) lastKnownNameRef.current = displayName
   }, [displayName])
 
-  const prevActiveSessionIdRef = useRef<string | null>(null)
-  const [showThanks, setShowThanks] = useState(false)
+  type UIMode = "thanks" | "active" | "idle"
+
+  const [forcingThanks, setForcingThanks] = useState(false)
   const thanksTimerRef = useRef<number | null>(null)
+  const prevSessionIdRef = useRef<string | null>(null)
+  const prevSessionId = prevSessionIdRef.current
+  const justEnded = !!prevSessionId && !activeSessionId
 
+  // Keep prevSessionIdRef in sync without mutating during render.
   useLayoutEffect(() => {
-    const prev = prevActiveSessionIdRef.current
-    const next = activeSessionId
-    prevActiveSessionIdRef.current = next
+    prevSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
 
-    // When session becomes null after having a session, show "thanks" for 2s, then return to idle.
-    if (prev && !next) {
-      setShowThanks(true)
+  // Ensure "thanks" is shown immediately on the render where the session ends,
+  // and then persisted via forcingThanks for the timer duration.
+  useLayoutEffect(() => {
+    if (justEnded) {
+      setForcingThanks(true)
       if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
       thanksTimerRef.current = window.setTimeout(() => {
-        setShowThanks(false)
+        setForcingThanks(false)
         thanksTimerRef.current = null
       }, 3000)
       return
     }
 
-    // If a new session starts, cancel thanks immediately.
-    if (next) {
+    // If a new session arrives, cancel thanks immediately.
+    if (activeSessionId) {
       if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
       thanksTimerRef.current = null
-      setShowThanks(false)
+      setForcingThanks(false)
     }
-  }, [activeSessionId])
+  }, [activeSessionId, justEnded])
+
+  useEffect(() => {
+    return () => {
+      if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
+    }
+  }, [])
+
+  const uiMode: UIMode = useMemo(() => {
+    if (forcingThanks || justEnded || buyerState === "done") return "thanks"
+    if (activeSessionId) return "active"
+    return "idle"
+  }, [activeSessionId, buyerState, forcingThanks, justEnded])
 
   useEffect(() => {
     return () => {
@@ -380,9 +398,9 @@ export default function PosBuyer() {
 
           <div className={styles.main}>
             <AnimatePresence mode="wait">
-              {(showThanks || buyerState === "done") && (
+              {uiMode === "thanks" && (
                 <motion.div
-                  key={`thanks_${showThanks ? "overlay" : "done"}_${activeSessionId ?? "null"}`}
+                  key="thanks-overlay"
                   className={`${styles.successStage} ${styles.center}`}
                   {...motionProps}
                   variants={contentStagger}
@@ -401,7 +419,7 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {!showThanks && buyerState === "idle" && (
+              {uiMode === "idle" && (
                 <motion.div
                   key="idle"
                   className={`${styles.waitingStage} ${styles.center}`}
@@ -417,7 +435,7 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {!showThanks && buyerState === "waiting_face" && (
+              {uiMode === "active" && buyerState === "waiting_face" && (
                 <motion.div key="waiting_face" className={styles.scanStage} {...motionProps} variants={contentStagger}>
                   <motion.div className={styles.scanHeader} variants={item}>
                     <div className={styles.scanTitle}>Mirá a la cámara</div>
@@ -462,7 +480,7 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {!showThanks && buyerState === "face_verified_purchase" && (
+              {uiMode === "active" && buyerState === "face_verified_purchase" && (
                 <motion.div
                   key="verified_purchase"
                 className={`${styles.successStage} ${styles.center}`}
@@ -481,7 +499,7 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {!showThanks && buyerState === "face_verified_redeem" && (
+              {uiMode === "active" && buyerState === "face_verified_redeem" && (
                 <motion.div key="verified_redeem" className={styles.heroCard} {...motionProps} variants={contentStagger}>
                 <motion.div variants={item}>
                   <SuccessCheck />
@@ -534,7 +552,7 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {!showThanks && buyerState === "reward_selected" && (
+              {uiMode === "active" && buyerState === "reward_selected" && (
                 <motion.div
                   key="reward_selected"
                   className={`${styles.heroCard} ${styles.center}`}
