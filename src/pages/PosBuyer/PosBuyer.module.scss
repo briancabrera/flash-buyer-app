@@ -82,6 +82,50 @@
   color: #1f2937;
 }
 
+.catalogStage {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: -18px;
+}
+
+.catalogHeader {
+  margin-bottom: 30px;
+  text-align: center;
+  display: grid;
+  place-items: center;
+}
+
+.catalogGreeting {
+  font-size: 20px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: 0.01em;
+  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.catalogTitle {
+  margin-top: 6px;
+  font-size: 40px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+.catalogSubtitle {
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.catalogHint {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .greeting {
   font-size: 18px;
   font-weight: 600;
@@ -278,6 +322,110 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.rewardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 560px) {
+  .rewardGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 980px) {
+  .rewardGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.rewardTile {
+  position: relative;
+  text-align: left;
+  width: 100%;
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  cursor: pointer;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  color: #1f2937;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px;
+}
+
+.rewardTile:active {
+  transform: scale(0.98);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.rewardTileDisabled {
+  cursor: default;
+  opacity: 0.72;
+  filter: saturate(0.9);
+}
+
+.rewardTileSelected {
+  box-shadow: 0 14px 32px rgba(56, 128, 255, 0.18);
+  border-color: rgba(56, 128, 255, 0.45);
+}
+
+.rewardTileTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rewardIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #3880ff 0%, #5c9fff 100%);
+  box-shadow: 0 8px 18px rgba(56, 128, 255, 0.2);
+  display: grid;
+  place-items: center;
+}
+
+.rewardIconText {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+.rewardTileName {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.15;
+}
+
+.rewardPointsPill {
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(56, 128, 255, 0.12);
+  color: #3880ff;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.rewardTileDesc {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.45;
+  display: -webkit-box;
+  line-clamp: 3;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .voucherBox {

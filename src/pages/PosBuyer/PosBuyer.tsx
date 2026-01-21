@@ -148,6 +148,8 @@ export default function PosBuyer() {
   const [rewards, setRewards] = useState<PosReward[]>([])
   const [selectedRewardId, setSelectedRewardId] = useState<string>("")
   const [voucherCode, setVoucherCode] = useState<string>("")
+  const [redeemStep, setRedeemStep] = useState<"verify" | "select">("verify")
+  const redeemStepTimerRef = useRef<number | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -243,6 +245,9 @@ export default function PosBuyer() {
       setVoucherCode("")
       lastFaceScanRef.current = null
       stopCamera()
+      setRedeemStep("verify")
+      if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
+      redeemStepTimerRef.current = null
       return
     }
     setScanState("idle")
@@ -252,7 +257,32 @@ export default function PosBuyer() {
     setVoucherCode("")
     lastFaceScanRef.current = null
     stopCamera()
+    setRedeemStep("verify")
+    if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
+    redeemStepTimerRef.current = null
   }, [activeSessionId])
+
+  useEffect(() => {
+    // REDEEM: after FACE_VERIFIED, show success screen for 2s then allow selecting rewards.
+    if (uiMode !== "active" || buyerState !== "face_verified_redeem") {
+      if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
+      redeemStepTimerRef.current = null
+      setRedeemStep("verify")
+      return
+    }
+
+    setRedeemStep("verify")
+    if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
+    redeemStepTimerRef.current = window.setTimeout(() => {
+      setRedeemStep("select")
+      redeemStepTimerRef.current = null
+    }, 2000)
+
+    return () => {
+      if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
+      redeemStepTimerRef.current = null
+    }
+  }, [buyerState, uiMode])
 
   useEffect(() => {
     if (buyerState === "waiting_face" || scanState === "scanning") {
@@ -499,19 +529,33 @@ export default function PosBuyer() {
                 </motion.div>
               )}
 
-              {uiMode === "active" && buyerState === "face_verified_redeem" && (
-                <motion.div key="verified_redeem" className={styles.heroCard} {...motionProps} variants={contentStagger}>
-                <motion.div variants={item}>
-                  <SuccessCheck />
+              {uiMode === "active" && buyerState === "face_verified_redeem" && redeemStep === "verify" && (
+                <motion.div
+                  key="redeem_verified"
+                  className={`${styles.successStage} ${styles.center}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                  <motion.div variants={item}>
+                    <SuccessCheck />
+                  </motion.div>
+                  <motion.div className={styles.successTitle} variants={item}>
+                    Identidad verificada
+                  </motion.div>
+                  <motion.div className={styles.successText} variants={item}>
+                    Preparando recompensas…
+                  </motion.div>
                 </motion.div>
-                  <motion.div className={styles.greeting} variants={item}>
-                    {`Hola${lastKnownNameRef.current ? ` ${lastKnownNameRef.current}` : ""}!`}
-                  </motion.div>
-                <motion.div className={styles.heroTitle} variants={item}>
-                    Elegí tu recompensa
-                  </motion.div>
-                  <motion.div className={styles.cardText} variants={item}>
-                    Seleccioná una opción para canjear.
+              )}
+
+              {uiMode === "active" && buyerState === "face_verified_redeem" && redeemStep === "select" && (
+                <motion.div key="redeem_select" className={styles.catalogStage} {...motionProps} variants={contentStagger}>
+                  <motion.div className={styles.catalogHeader} variants={item}>
+                    <div className={styles.catalogGreeting}>
+                      {`Hola${lastKnownNameRef.current ? ` ${lastKnownNameRef.current}` : ""}!`}
+                    </div>
+                    <div className={styles.catalogTitle}>Elegí tu recompensa</div>
+                    <div className={styles.catalogSubtitle}>Seleccioná una opción para canjear.</div>
                   </motion.div>
 
                   {rewardStatus === "loading" && (
@@ -522,33 +566,47 @@ export default function PosBuyer() {
                     </div>
                   )}
 
-                  {rewardStatus === "ready" && (
-                    <IonList className={styles.rewardList}>
-                      {rewards.map((r) => (
-                        <IonItem
-                          key={r.id}
-                          button
-                          onClick={() => onSelectReward(r.id)}
-                          color={selectedRewardId === r.id ? "light" : undefined}
-                        >
-                          <IonLabel>
-                            <div className={styles.rewardName}>{r.name}</div>
-                            {r.description && <div className={styles.rewardDesc}>{String(r.description)}</div>}
-                            <div className={styles.rewardPoints}>{r.cost_points} pts</div>
-                          </IonLabel>
-                        </IonItem>
-                      ))}
-                    </IonList>
-                  )}
+                  {(rewardStatus === "ready" ||
+                    rewardStatus === "sending" ||
+                    rewardStatus === "awaiting_sse" ||
+                    rewardStatus === "done") &&
+                    rewards.length > 0 && (
+                      <div className={styles.rewardGrid}>
+                        {rewards.map((r) => {
+                          const letter = (r.name?.trim()?.[0] ?? "?").toUpperCase()
+                          const disabled = rewardStatus !== "ready"
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              disabled={disabled}
+                              className={`${styles.rewardTile} ${selectedRewardId === r.id ? styles.rewardTileSelected : ""} ${
+                                disabled ? styles.rewardTileDisabled : ""
+                              }`}
+                              onClick={() => onSelectReward(r.id)}
+                            >
+                              <div className={styles.rewardTileTop}>
+                                <div className={styles.rewardIcon} aria-hidden="true">
+                                  <div className={styles.rewardIconText}>{letter}</div>
+                                </div>
+                                <div className={styles.rewardPointsPill}>{r.cost_points} pts</div>
+                              </div>
+                              <div className={styles.rewardTileName}>{r.name}</div>
+                              {r.description && <div className={styles.rewardTileDesc}>{String(r.description)}</div>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
 
                   {rewardStatus === "sending" && (
-                    <div className={`${styles.inlineStatus} ${styles.cardText}`}>
+                    <div className={`${styles.inlineStatus} ${styles.catalogHint}`}>
                       <IonSpinner name="dots" />
                       <span>Enviando selección…</span>
                     </div>
                   )}
 
-                  {rewardStatus === "awaiting_sse" && <div className={styles.cardText}>Listo, confirmá en caja…</div>}
+                  {rewardStatus === "awaiting_sse" && <div className={styles.catalogHint}>Listo, confirmá en caja…</div>}
                 </motion.div>
               )}
 
