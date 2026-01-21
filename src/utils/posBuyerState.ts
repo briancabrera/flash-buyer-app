@@ -24,6 +24,11 @@ export function derivePosBuyerState(snapshot: unknown): PosBuyerState {
     const hasReward = !!(s.redeem?.reward_id || s.redeem?.voucher_code)
     return hasReward ? "reward_selected" : "face_verified_redeem"
   }
+  // After selecting a reward, backend may advance status beyond FACE_VERIFIED (e.g. READY_TO_CONFIRM).
+  // On Buyer we still want the "waiting cashier" UI.
+  if (mode === "REDEEM" && (status === "READY_TO_CONFIRM" || status === "WAITING_ACTION")) {
+    return "reward_selected"
+  }
   if (status === "CLOSED" || status === "EXPIRED") return "done"
   return "idle"
 }

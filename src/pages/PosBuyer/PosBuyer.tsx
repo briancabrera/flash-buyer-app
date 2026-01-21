@@ -89,6 +89,10 @@ function SuccessCheck() {
   )
 }
 
+function WaitLoader() {
+  return <IonSpinner name="dots" />
+}
+
 function ThanksHeart() {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const clipRef = useRef<SVGCircleElement | null>(null)
@@ -147,8 +151,7 @@ export default function PosBuyer() {
   const [rewardStatus, setRewardStatus] = useState<RewardStatus>("idle")
   const [rewards, setRewards] = useState<PosReward[]>([])
   const [selectedRewardId, setSelectedRewardId] = useState<string>("")
-  const [voucherCode, setVoucherCode] = useState<string>("")
-  const [redeemStep, setRedeemStep] = useState<"verify" | "select">("verify")
+  const [redeemStep, setRedeemStep] = useState<"verify" | "select" | "waiting">("verify")
   const redeemStepTimerRef = useRef<number | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -242,7 +245,6 @@ export default function PosBuyer() {
       setScanError(null)
       setRewardStatus("idle")
       setSelectedRewardId("")
-      setVoucherCode("")
       lastFaceScanRef.current = null
       stopCamera()
       setRedeemStep("verify")
@@ -254,7 +256,6 @@ export default function PosBuyer() {
     setScanError(null)
     setRewardStatus("idle")
     setSelectedRewardId("")
-    setVoucherCode("")
     lastFaceScanRef.current = null
     stopCamera()
     setRedeemStep("verify")
@@ -274,7 +275,7 @@ export default function PosBuyer() {
     setRedeemStep("verify")
     if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
     redeemStepTimerRef.current = window.setTimeout(() => {
-      setRedeemStep("select")
+      setRedeemStep((prev) => (prev === "verify" ? "select" : prev))
       redeemStepTimerRef.current = null
     }, 2000)
 
@@ -295,7 +296,6 @@ export default function PosBuyer() {
   useEffect(() => {
     const voucher = redeemSnapshot?.voucher_code
     if (typeof voucher === "string" && voucher.length > 0) {
-      setVoucherCode(voucher)
       setRewardStatus("done")
       if (activeSessionId) markRewardRequestStatus(rewardRequestBySessionRef.current, activeSessionId, "done")
     }
@@ -380,6 +380,7 @@ export default function PosBuyer() {
     })
     if (!shouldSend) return
     setSelectedRewardId(rewardId)
+    setRedeemStep("waiting")
     setRewardStatus("sending")
     try {
       await redeemSelect(activeSessionId, { reward_id: rewardId }, token, request.idempotencyKey)
@@ -387,6 +388,7 @@ export default function PosBuyer() {
     } catch (e) {
       markRewardRequestStatus(rewardRequestBySessionRef.current, activeSessionId, "error")
       setRewardStatus("error")
+      setRedeemStep("select")
     }
   }
 
@@ -452,7 +454,7 @@ export default function PosBuyer() {
               {uiMode === "idle" && (
                 <motion.div
                   key="idle"
-                  className={`${styles.waitingStage} ${styles.center}`}
+                  className={`${styles.waitingStage} ${styles.center} ${styles.waitStage}`}
                   {...motionProps}
                   variants={contentStagger}
                 >
@@ -461,6 +463,9 @@ export default function PosBuyer() {
                   </motion.div>
                   <motion.div className={styles.waitingText} variants={item}>
                     Por favor, aguardá al cajero.
+                  </motion.div>
+                  <motion.div className={styles.waitFooter} variants={item}>
+                    <WaitLoader />
                   </motion.div>
                 </motion.div>
               )}
@@ -513,7 +518,7 @@ export default function PosBuyer() {
               {uiMode === "active" && buyerState === "face_verified_purchase" && (
                 <motion.div
                   key="verified_purchase"
-                className={`${styles.successStage} ${styles.center}`}
+                className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
                   {...motionProps}
                   variants={contentStagger}
                 >
@@ -526,13 +531,16 @@ export default function PosBuyer() {
                 <motion.div className={styles.successText} variants={item}>
                   Esperá al cajero para continuar.
                 </motion.div>
+                <motion.div className={styles.waitFooter} variants={item}>
+                  <WaitLoader />
+                </motion.div>
                 </motion.div>
               )}
 
               {uiMode === "active" && buyerState === "face_verified_redeem" && redeemStep === "verify" && (
                 <motion.div
                   key="redeem_verified"
-                  className={`${styles.successStage} ${styles.center}`}
+                  className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
                   {...motionProps}
                   variants={contentStagger}
                 >
@@ -544,6 +552,9 @@ export default function PosBuyer() {
                   </motion.div>
                   <motion.div className={styles.successText} variants={item}>
                     Preparando recompensas…
+                  </motion.div>
+                  <motion.div className={styles.waitFooter} variants={item}>
+                    <WaitLoader />
                   </motion.div>
                 </motion.div>
               )}
@@ -566,11 +577,25 @@ export default function PosBuyer() {
                     </div>
                   )}
 
-                  {(rewardStatus === "ready" ||
-                    rewardStatus === "sending" ||
-                    rewardStatus === "awaiting_sse" ||
-                    rewardStatus === "done") &&
-                    rewards.length > 0 && (
+                  {(rewardStatus === "sending" || rewardStatus === "awaiting_sse") && (
+                    <motion.div
+                      key="redeem_waiting_cashier_inline"
+                      className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
+                      variants={contentStagger}
+                    >
+                      <motion.div className={styles.successTitle} variants={item}>
+                        Recompensa seleccionada
+                      </motion.div>
+                      <motion.div className={styles.successText} variants={item}>
+                        Esperá al cajero para finalizar…
+                      </motion.div>
+                      <motion.div className={styles.waitFooter} variants={item}>
+                        <WaitLoader />
+                      </motion.div>
+                    </motion.div>
+                  )}
+
+                  {rewardStatus === "ready" && rewards.length > 0 && (
                       <div className={styles.rewardGrid}>
                         {rewards.map((r) => {
                           const letter = (r.name?.trim()?.[0] ?? "?").toUpperCase()
@@ -604,36 +629,25 @@ export default function PosBuyer() {
                       </div>
                     )}
 
-                  {rewardStatus === "sending" && (
-                    <div className={`${styles.inlineStatus} ${styles.catalogHint}`}>
-                      <IonSpinner name="dots" />
-                      <span>Enviando selección…</span>
-                    </div>
-                  )}
-
-                  {rewardStatus === "awaiting_sse" && <div className={styles.catalogHint}>Listo, confirmá en caja…</div>}
                 </motion.div>
               )}
 
               {uiMode === "active" && buyerState === "reward_selected" && (
                 <motion.div
                   key="reward_selected"
-                  className={`${styles.heroCard} ${styles.center}`}
+                  className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
                   {...motionProps}
                   variants={contentStagger}
                 >
-                  <motion.div className={styles.cardTitle} variants={item}>
-                    Reward seleccionada
+                  <motion.div className={styles.successTitle} variants={item}>
+                    Recompensa seleccionada
                   </motion.div>
-                  <motion.div className={styles.cardText} variants={item}>
-                    Listo. Esperá al cajero…
+                  <motion.div className={styles.successText} variants={item}>
+                    Esperá al cajero para finalizar…
                   </motion.div>
-                  {voucherCode && (
-                    <motion.div className={styles.voucherBox} variants={item}>
-                      <div className={styles.voucherTitle}>Tu código</div>
-                      <div className={styles.voucherCode}>{voucherCode}</div>
-                    </motion.div>
-                  )}
+                  <motion.div className={styles.waitFooter} variants={item}>
+                    <WaitLoader />
+                  </motion.div>
                 </motion.div>
               )}
 

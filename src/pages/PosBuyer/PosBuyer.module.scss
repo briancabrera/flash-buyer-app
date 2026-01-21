@@ -498,6 +498,17 @@
   justify-content: center;
 }
 
+.waitStage {
+  // Keep the loader visually below the step content (avoid absolute overlap in short layouts)
+  width: 100%;
+}
+
+.waitFooter {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
 .successTitle {
   font-size: 30px;
   font-weight: 800;

@@ -19,4 +19,8 @@ describe("derivePosBuyerState", () => {
       derivePosBuyerState({ status: "FACE_VERIFIED", mode: "REDEEM", redeem: { reward_id: "r1" } }),
     ).toBe("reward_selected")
   })
+
+  it("REDEEM READY_TO_CONFIRM => reward_selected (waiting cashier)", () => {
+    expect(derivePosBuyerState({ status: "READY_TO_CONFIRM", mode: "REDEEM" })).toBe("reward_selected")
+  })
 })
