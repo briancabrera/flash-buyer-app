@@ -229,7 +229,7 @@ export default function PosDebug() {
       setRewardStatus("loading")
       try {
         pushLog({ ts: Date.now(), kind: "request", message: "GET /pos/rewards" })
-        const res = await listRewardsWithMeta(token)
+        const res = await listRewardsWithMeta(token, sse.activeSessionId ?? undefined)
         rewardsBySessionRef.current.set(sse.activeSessionId as string, res.items)
         setRewards(res.items)
         setRewardStatus("ready")

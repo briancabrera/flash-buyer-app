@@ -312,7 +312,7 @@ export default function PosBuyer() {
     const load = async () => {
       setRewardStatus("loading")
       try {
-        const res = await listRewardsWithMeta(token)
+        const res = await listRewardsWithMeta(token, activeSessionId)
         rewardsBySessionRef.current.set(activeSessionId, res.items)
         setRewards(res.items)
         setRewardStatus("ready")
@@ -574,7 +574,8 @@ export default function PosBuyer() {
                       <div className={styles.rewardGrid}>
                         {rewards.map((r) => {
                           const letter = (r.name?.trim()?.[0] ?? "?").toUpperCase()
-                          const disabled = rewardStatus !== "ready"
+                          const canRedeem = r.can_redeem !== false
+                          const disabled = rewardStatus !== "ready" || !canRedeem
                           return (
                             <button
                               key={r.id}
@@ -589,7 +590,11 @@ export default function PosBuyer() {
                                 <div className={styles.rewardIcon} aria-hidden="true">
                                   <div className={styles.rewardIconText}>{letter}</div>
                                 </div>
-                                <div className={styles.rewardPointsPill}>{r.cost_points} pts</div>
+                                {!canRedeem ? (
+                                  <div className={styles.rewardRedeemedPill}>Ya canjeado</div>
+                                ) : (
+                                  <div className={styles.rewardPointsPill}>{r.cost_points} pts</div>
+                                )}
                               </div>
                               <div className={styles.rewardTileName}>{r.name}</div>
                               {r.description && <div className={styles.rewardTileDesc}>{String(r.description)}</div>}

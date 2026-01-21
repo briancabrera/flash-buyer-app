@@ -15,4 +15,10 @@ describe("posRewardsClient", () => {
     await listRewards("tok_1")
     expect(posGatewayClient.request).toHaveBeenCalledWith("GET", "/pos/rewards", { token: "tok_1" })
   })
+
+  it("listRewards can pass session_id to compute can_redeem", async () => {
+    const { posGatewayClient } = await import("./posGatewayClient")
+    await listRewards("tok_2", "sess_123")
+    expect(posGatewayClient.request).toHaveBeenCalledWith("GET", "/pos/rewards?session_id=sess_123", { token: "tok_2" })
+  })
 })

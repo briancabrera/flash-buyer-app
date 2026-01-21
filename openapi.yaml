@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: POS API
-  version: 2.4.0
+  version: 2.6.0
   description: Point of Sale API for managing cashier sessions, face verification, and transactions
 
 servers:
@@ -559,9 +559,19 @@ paths:
   /pos/rewards:
     get:
       summary: List rewards for authenticated merchant
-      description: Returns ACTIVE rewards for the merchant associated with the authenticated terminal. Disabled rewards are not returned.
+      description: |
+        Returns ACTIVE rewards for the merchant associated with the authenticated terminal. Disabled rewards are not returned.
+        If `session_id` is provided (and the session has a verified user), items include `can_redeem` per reward for that user.
       tags:
         - Rewards
+      parameters:
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional POS session id to compute per-user redeemability (`can_redeem`)
       responses:
         '200':
           description: Rewards list
@@ -572,7 +582,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/TerminalDisabled'
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -649,11 +663,14 @@ components:
           properties:
             reward_id:
               type: string
-            reference_code:
-              type: string
-              nullable: true
             voucher_code:
               type: string
+            reward_name:
+              type: string
+              nullable: true
+            reward_description:
+              type: string
+              nullable: true
         created_at:
           type: string
           format: date-time
@@ -746,6 +763,13 @@ components:
         created_at:
           type: string
           format: date-time
+        is_repeatable:
+          type: boolean
+          description: If true, the same user can redeem this reward multiple times.
+        can_redeem:
+          type: boolean
+          nullable: true
+          description: If `session_id` is provided, indicates whether the current session user can redeem this reward.
 
     RewardsListResponse:
       type: object
