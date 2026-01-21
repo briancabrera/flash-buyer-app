@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   IonButton,
   IonContent,
@@ -11,6 +11,7 @@ import {
   IonText,
 } from "@ionic/react"
 import { AnimatePresence, motion } from "framer-motion"
+import { gsap } from "gsap"
 import styles from "./PosBuyer.module.scss"
 import { startTerminalSse, stopTerminalSse, useTerminalSse } from "../../hooks/useTerminalSse"
 import { FaceCaptureView } from "../../components/FaceCaptureView/FaceCaptureView"
@@ -89,23 +90,50 @@ function SuccessCheck() {
 }
 
 function ThanksHeart() {
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const clipRef = useRef<SVGCircleElement | null>(null)
+  const clipId = useId()
+
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const c = clipRef.current
+      const svg = svgRef.current
+      const heart = svg?.querySelector("path")
+      if (!c) return
+      // Clip reveal: keep heart geometry static (no dash) and expand a circle from bottom vertex.
+      if (svg) {
+        gsap.set(svg, { opacity: 0, scale: 0.992, transformOrigin: "50% 50%" })
+        gsap.to(svg, { opacity: 1, scale: 1, duration: 0.22, ease: "power2.out" })
+      }
+      if (heart) {
+        gsap.set(heart, { opacity: 0 })
+        gsap.to(heart, { opacity: 1, duration: 0.25, ease: "power2.out", delay: 0.05 })
+      }
+      gsap.fromTo(
+        c,
+        // Avoid exact 0 radius which can look "steppy" in some WebViews.
+        { attr: { r: 0.001 } },
+        { attr: { r: 32 }, duration: 1.25, ease: "power3.out" },
+      )
+    }, svgRef)
+
+    return () => ctx.revert()
+  }, [])
+
+  // Single, closed "sharp" heart path (Feather-like). One piece => no gaps.
+  const heartPath =
+    "M12 21.23 L4.22 13.45 L3.16 12.39 A5.5 5.5 0 0 1 10.94 4.61 L12 5.67 L13.06 4.61 A5.5 5.5 0 0 1 20.84 12.39 L19.78 13.45 L12 21.23 Z"
+
   return (
     <div className={styles.thanksWrap} aria-hidden="true">
-      <motion.svg
-        className={styles.thanksMark}
-        viewBox="0 0 64 64"
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-      >
-        <motion.path
-          className={styles.thanksHeart}
-          d="M32 55s-18-10.7-24.2-22.3C3.1 23.8 7.8 14 17.7 14c5.2 0 9.2 3 11.4 6.4C31.3 17 35.3 14 40.5 14c9.9 0 14.6 9.8 9.9 18.7C44 44.3 32 55 32 55z"
-          initial={{ scale: 0.92 }}
-          animate={{ scale: [0.98, 1.05, 0.99, 1.03, 1] }}
-          transition={{ duration: 1.15, ease: "easeInOut" }}
-        />
-      </motion.svg>
+      <svg ref={svgRef} className={styles.thanksMark} viewBox="0 0 24 24">
+        <defs>
+          <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
+            <circle ref={clipRef} cx="12" cy="21.23" r="0" />
+          </clipPath>
+        </defs>
+        <path d={heartPath} className={styles.thanksHeart} clipPath={`url(#${clipId})`} />
+      </svg>
     </div>
   )
 }
@@ -160,7 +188,7 @@ export default function PosBuyer() {
       thanksTimerRef.current = window.setTimeout(() => {
         setShowThanks(false)
         thanksTimerRef.current = null
-      }, 2000)
+      }, 3000)
       return
     }
 
@@ -359,9 +387,9 @@ export default function PosBuyer() {
                   {...motionProps}
                   variants={contentStagger}
                 >
-                  <motion.div variants={item}>
+                  <div>
                     <ThanksHeart />
-                  </motion.div>
+                  </div>
                   <motion.div className={styles.successTitle} variants={item}>
                     {lastKnownNameRef.current
                       ? `${lastKnownNameRef.current}, gracias por tu compra`
@@ -482,9 +510,6 @@ export default function PosBuyer() {
                         <IonItem
                           key={r.id}
                           button
-                          disabled={
-                            rewardStatus === "sending" || rewardStatus === "awaiting_sse" || rewardStatus === "done"
-                          }
                           onClick={() => onSelectReward(r.id)}
                           color={selectedRewardId === r.id ? "light" : undefined}
                         >
