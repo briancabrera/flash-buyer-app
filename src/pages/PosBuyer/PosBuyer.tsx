@@ -199,7 +199,7 @@ export default function PosBuyer() {
       thanksTimerRef.current = window.setTimeout(() => {
         setForcingThanks(false)
         thanksTimerRef.current = null
-      }, 3000)
+      }, 2250)
       return
     }
 
@@ -459,7 +459,7 @@ export default function PosBuyer() {
                   variants={contentStagger}
                 >
                   <motion.div className={styles.waitingTitle} variants={item}>
-                    Esperando al vendedor…
+                    Esperando al vendedor
                   </motion.div>
                   <motion.div className={styles.waitingText} variants={item}>
                     Por favor, aguardá al cajero.
@@ -551,7 +551,7 @@ export default function PosBuyer() {
                     Identidad verificada
                   </motion.div>
                   <motion.div className={styles.successText} variants={item}>
-                    Preparando recompensas…
+                    Preparando recompensas.
                   </motion.div>
                   <motion.div className={styles.waitFooter} variants={item}>
                     <WaitLoader />
@@ -587,7 +587,7 @@ export default function PosBuyer() {
                         Recompensa seleccionada
                       </motion.div>
                       <motion.div className={styles.successText} variants={item}>
-                        Esperá al cajero para finalizar…
+                        Esperá al cajero para finalizar.
                       </motion.div>
                       <motion.div className={styles.waitFooter} variants={item}>
                         <WaitLoader />
@@ -643,7 +643,7 @@ export default function PosBuyer() {
                     Recompensa seleccionada
                   </motion.div>
                   <motion.div className={styles.successText} variants={item}>
-                    Esperá al cajero para finalizar…
+                    Esperá al cajero para finalizar.
                   </motion.div>
                   <motion.div className={styles.waitFooter} variants={item}>
                     <WaitLoader />
