@@ -23,4 +23,8 @@ describe("derivePosBuyerState", () => {
   it("REDEEM READY_TO_CONFIRM => reward_selected (waiting cashier)", () => {
     expect(derivePosBuyerState({ status: "READY_TO_CONFIRM", mode: "REDEEM" })).toBe("reward_selected")
   })
+
+  it("CANCELLED => cancelled", () => {
+    expect(derivePosBuyerState({ status: "CANCELLED", mode: "PURCHASE" })).toBe("cancelled")
+  })
 })

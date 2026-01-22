@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: POS API
-  version: 2.6.0
+  version: 2.7.0
   description: Point of Sale API for managing cashier sessions, face verification, and transactions
 
 servers:
@@ -556,6 +556,53 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /pos/sessions/{sessionId}/cancel:
+    post:
+      summary: Cancel session (force CANCELLED)
+      description: |
+        Cancels a session regardless of its current status. Sets status=CANCELLED, emits SSE, clears terminal current session if needed,
+        and deletes the session from Redis (no record kept). Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Session cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /pos/rewards:
     get:
       summary: List rewards for authenticated merchant
@@ -627,7 +674,7 @@ components:
           enum: [UNSET, PURCHASE, REDEEM]
         status:
           type: string
-          enum: [OPEN, WAITING_FACE, FACE_VERIFIED, WAITING_ACTION, READY_TO_CONFIRM, COMMITTING, COMMITTED, CLOSED, EXPIRED, FAILED]
+          enum: [OPEN, WAITING_FACE, FACE_VERIFIED, WAITING_ACTION, READY_TO_CONFIRM, COMMITTING, COMMITTED, CLOSED, CANCELLED, EXPIRED, FAILED]
         user:
           type: object
           nullable: true

@@ -509,6 +509,27 @@
   margin-top: 0;
 }
 
+.cancelWrap {
+  width: 104px;
+  height: 104px;
+  filter: drop-shadow(0 12px 34px rgba(239, 68, 68, 0.22));
+}
+
+.cancelMark {
+  width: 104px;
+  height: 104px;
+}
+
+.cancelCircle {
+  stroke: rgba(239, 68, 68, 0.28);
+  stroke-width: 4;
+}
+
+.cancelX {
+  stroke: rgba(239, 68, 68, 0.92);
+  stroke-width: 6.2;
+}
+
 .successTitle {
   font-size: 30px;
   font-weight: 800;

@@ -4,6 +4,7 @@ export type PosBuyerState =
   | "face_verified_purchase"
   | "face_verified_redeem"
   | "reward_selected"
+  | "cancelled"
   | "done"
 
 type SessionSnapshot = {
@@ -19,6 +20,7 @@ export function derivePosBuyerState(snapshot: unknown): PosBuyerState {
   const mode = s.mode ?? ""
 
   if (status === "WAITING_FACE") return "waiting_face"
+  if (status === "CANCELLED") return "cancelled"
   if (status === "FACE_VERIFIED") {
     if (mode === "PURCHASE") return "face_verified_purchase"
     const hasReward = !!(s.redeem?.reward_id || s.redeem?.voucher_code)

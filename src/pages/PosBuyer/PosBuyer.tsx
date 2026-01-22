@@ -93,6 +93,41 @@ function WaitLoader() {
   return <IonSpinner name="dots" />
 }
 
+function CancelMark() {
+  return (
+    <div className={styles.cancelWrap} aria-hidden="true">
+      <motion.svg
+        className={styles.cancelMark}
+        viewBox="0 0 52 52"
+        initial={{ scale: 0.98, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+      >
+        <motion.circle
+          className={styles.cancelCircle}
+          cx="26"
+          cy="26"
+          r="24"
+          fill="none"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        />
+        <motion.path
+          className={styles.cancelX}
+          fill="none"
+          d="M18 18 L34 34 M34 18 L18 34"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
+        />
+      </motion.svg>
+    </div>
+  )
+}
+
 function ThanksHeart() {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const clipRef = useRef<SVGCircleElement | null>(null)
@@ -146,6 +181,15 @@ export default function PosBuyer() {
   const sse = useTerminalSse()
   const token = import.meta.env.VITE_TERMINAL_TOKEN ?? ""
 
+  const lastEventStatus = useMemo(() => {
+    const evt = sse.lastEvent
+    if (!evt || !evt.data || typeof evt.data !== "object") return null
+    const any = evt.data as any
+    const snap = any.session && typeof any.session === "object" ? any.session : any
+    const status = typeof snap?.status === "string" ? (snap.status as string) : null
+    return status
+  }, [sse.lastEvent])
+
   const [scanState, setScanState] = useState<ScanState>("idle")
   const [scanError, setScanError] = useState<string | null>(null)
   const [rewardStatus, setRewardStatus] = useState<RewardStatus>("idle")
@@ -177,22 +221,57 @@ export default function PosBuyer() {
     if (displayName) lastKnownNameRef.current = displayName
   }, [displayName])
 
-  type UIMode = "thanks" | "active" | "idle"
+  type UIMode = "thanks" | "cancelled" | "active" | "idle"
 
   const [forcingThanks, setForcingThanks] = useState(false)
   const thanksTimerRef = useRef<number | null>(null)
+  const [forcingCancelled, setForcingCancelled] = useState(false)
+  const cancelledTimerRef = useRef<number | null>(null)
+  const lastEndReasonRef = useRef<"cancelled" | "normal" | null>(null)
+
   const prevSessionIdRef = useRef<string | null>(null)
   const prevSessionId = prevSessionIdRef.current
   const justEnded = !!prevSessionId && !activeSessionId
+  const endedByCancel =
+    justEnded && (lastEndReasonRef.current === "cancelled" || lastEventStatus === "CANCELLED")
 
   // Keep prevSessionIdRef in sync without mutating during render.
   useLayoutEffect(() => {
     prevSessionIdRef.current = activeSessionId
   }, [activeSessionId])
 
+  // Track end reason from SSE snapshots/events so we can avoid showing "thanks" for cancelled sessions.
+  useEffect(() => {
+    const status =
+      sse.activeSession && typeof sse.activeSession === "object" ? ((sse.activeSession as any).status as string | undefined) : undefined
+    if (status === "CANCELLED") lastEndReasonRef.current = "cancelled"
+    if (status === "CLOSED" || status === "EXPIRED") lastEndReasonRef.current = "normal"
+  }, [sse.activeSession])
+
+  useEffect(() => {
+    if (lastEventStatus === "CANCELLED") lastEndReasonRef.current = "cancelled"
+    if (lastEventStatus === "CLOSED" || lastEventStatus === "EXPIRED") lastEndReasonRef.current = "normal"
+  }, [lastEventStatus])
+
   // Ensure "thanks" is shown immediately on the render where the session ends,
   // and then persisted via forcingThanks for the timer duration.
   useLayoutEffect(() => {
+    if (endedByCancel) {
+      setForcingCancelled(true)
+      if (cancelledTimerRef.current) window.clearTimeout(cancelledTimerRef.current)
+      cancelledTimerRef.current = window.setTimeout(() => {
+        setForcingCancelled(false)
+        cancelledTimerRef.current = null
+        // reset the reason so the next session end can show thanks normally
+        lastEndReasonRef.current = null
+      }, 1800)
+      // Cancel thanks immediately if it was pending
+      if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
+      thanksTimerRef.current = null
+      setForcingThanks(false)
+      return
+    }
+
     if (justEnded) {
       setForcingThanks(true)
       if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
@@ -208,20 +287,26 @@ export default function PosBuyer() {
       if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
       thanksTimerRef.current = null
       setForcingThanks(false)
+      if (cancelledTimerRef.current) window.clearTimeout(cancelledTimerRef.current)
+      cancelledTimerRef.current = null
+      setForcingCancelled(false)
+      lastEndReasonRef.current = null
     }
-  }, [activeSessionId, justEnded])
+  }, [activeSessionId, endedByCancel, justEnded])
 
   useEffect(() => {
     return () => {
       if (thanksTimerRef.current) window.clearTimeout(thanksTimerRef.current)
+      if (cancelledTimerRef.current) window.clearTimeout(cancelledTimerRef.current)
     }
   }, [])
 
   const uiMode: UIMode = useMemo(() => {
+    if (forcingCancelled || endedByCancel || buyerState === "cancelled") return "cancelled"
     if (forcingThanks || justEnded || buyerState === "done") return "thanks"
     if (activeSessionId) return "active"
     return "idle"
-  }, [activeSessionId, buyerState, forcingThanks, justEnded])
+  }, [activeSessionId, buyerState, endedByCancel, forcingCancelled, forcingThanks, justEnded])
 
   useEffect(() => {
     return () => {
@@ -262,6 +347,20 @@ export default function PosBuyer() {
     if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
     redeemStepTimerRef.current = null
   }, [activeSessionId])
+
+  // If session gets cancelled mid-flow, immediately stop camera and reset local UI state.
+  useEffect(() => {
+    if (buyerState !== "cancelled") return
+    setScanState("idle")
+    setScanError(null)
+    setRewardStatus("idle")
+    setSelectedRewardId("")
+    lastFaceScanRef.current = null
+    stopCamera()
+    setRedeemStep("verify")
+    if (redeemStepTimerRef.current) window.clearTimeout(redeemStepTimerRef.current)
+    redeemStepTimerRef.current = null
+  }, [buyerState])
 
   useEffect(() => {
     // REDEEM: after FACE_VERIFIED, show success screen for 2s then allow selecting rewards.
@@ -447,6 +546,28 @@ export default function PosBuyer() {
                   </motion.div>
                   <motion.div className={styles.successText} variants={item}>
                     ¡Que disfrutes Flash!
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {uiMode === "cancelled" && (
+                <motion.div
+                  key="cancelled-overlay"
+                  className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
+                  {...motionProps}
+                  variants={contentStagger}
+                >
+                  <motion.div variants={item}>
+                    <CancelMark />
+                  </motion.div>
+                  <motion.div className={styles.successTitle} variants={item}>
+                    Transacción cancelada
+                  </motion.div>
+                  <motion.div className={styles.successText} variants={item}>
+                    Volviendo al inicio…
+                  </motion.div>
+                  <motion.div className={styles.waitFooter} variants={item}>
+                    <WaitLoader />
                   </motion.div>
                 </motion.div>
               )}
