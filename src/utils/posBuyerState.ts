@@ -1,36 +1,43 @@
+import type { components } from "../../pos-api.types"
+
+type SessionResponse = components["schemas"]["SessionResponse"]
+type SessionStatus = NonNullable<SessionResponse["status"]>
+type SessionMode = NonNullable<SessionResponse["mode"]>
+
 export type PosBuyerState =
   | "idle"
   | "waiting_face"
+  | "select_mode"
   | "face_verified_purchase"
   | "face_verified_redeem"
   | "reward_selected"
   | "cancelled"
   | "done"
 
-type SessionSnapshot = {
-  status?: string
-  mode?: string
-  redeem?: { reward_id?: string | null; voucher_code?: string | null } | null
-}
-
-export function derivePosBuyerState(snapshot: unknown): PosBuyerState {
-  if (!snapshot || typeof snapshot !== "object") return "idle"
-  const s = snapshot as SessionSnapshot
-  const status = s.status ?? ""
-  const mode = s.mode ?? ""
+export function derivePosBuyerState(snapshot: SessionResponse | null): PosBuyerState {
+  if (!snapshot) return "idle"
+  const status = (snapshot.status ?? "OPEN") as SessionStatus
+  const mode = (snapshot.mode ?? "UNSET") as SessionMode
 
   if (status === "WAITING_FACE") return "waiting_face"
   if (status === "CANCELLED") return "cancelled"
   if (status === "FACE_VERIFIED") {
+    if (mode === "UNSET") return "select_mode"
     if (mode === "PURCHASE") return "face_verified_purchase"
-    const hasReward = !!(s.redeem?.reward_id || s.redeem?.voucher_code)
+    // REDEEM
+    const hasReward = !!(snapshot.redeem?.reward_id || snapshot.redeem?.voucher_code)
     return hasReward ? "reward_selected" : "face_verified_redeem"
   }
-  // After selecting a reward, backend may advance status beyond FACE_VERIFIED (e.g. READY_TO_CONFIRM).
-  // On Buyer we still want the "waiting cashier" UI.
-  if (mode === "REDEEM" && (status === "READY_TO_CONFIRM" || status === "WAITING_ACTION")) {
+
+  // After choosing a mode / selecting a reward, backend may advance status beyond FACE_VERIFIED.
+  // On Buyer we still want a "waiting cashier" UI.
+  if (mode === "REDEEM" && (status === "READY_TO_CONFIRM" || status === "WAITING_ACTION" || status === "COMMITTING" || status === "COMMITTED")) {
     return "reward_selected"
   }
+  if (mode === "PURCHASE" && (status === "WAITING_ACTION" || status === "READY_TO_CONFIRM" || status === "COMMITTING" || status === "COMMITTED")) {
+    return "face_verified_purchase"
+  }
+
   if (status === "CLOSED" || status === "EXPIRED") return "done"
   return "idle"
 }

@@ -18,14 +18,16 @@ import { FaceCaptureView } from "../../components/FaceCaptureView/FaceCaptureVie
 import { captureFrameFromVideo } from "../../utils/captureFrame"
 import { faceScan } from "../../services/posFaceScanClient"
 import { listRewardsWithMeta, type PosReward } from "../../services/posRewardsClient"
-import { redeemSelect } from "../../services/posSessionsClient"
+import { redeemSelect, setMode } from "../../services/posSessionsClient"
 import { PosApiError } from "../../services/posGatewayClient"
 import { derivePosBuyerState } from "../../utils/posBuyerState"
 import { canStartFaceScan, getFaceScanAttempt, type FaceScanAttempt } from "../../utils/faceScanGuards"
 import { getOrCreateRewardRequest, markRewardRequestStatus } from "../../utils/redeemGuards"
+import { getOrCreateModeRequest, markModeRequestStatus, type ModeRequestState } from "../../utils/modeGuards"
 
 type ScanState = "idle" | "scanning" | "sent" | "error"
 type RewardStatus = "idle" | "loading" | "ready" | "sending" | "awaiting_sse" | "done" | "error"
+type ModeStatus = "idle" | "sending" | "awaiting_sse" | "done" | "error"
 
 const FACE_CAPTURE_OPTIONS = { targetWidth: 720, jpegQuality: 0.7, maxBase64Length: 1_000_000 }
 
@@ -183,11 +185,16 @@ export default function PosBuyer() {
 
   const lastEventStatus = useMemo(() => {
     const evt = sse.lastEvent
-    if (!evt || !evt.data || typeof evt.data !== "object") return null
-    const any = evt.data as any
-    const snap = any.session && typeof any.session === "object" ? any.session : any
-    const status = typeof snap?.status === "string" ? (snap.status as string) : null
-    return status
+    const data = evt?.data
+    if (!data || typeof data !== "object") return null
+    const root = data as Record<string, unknown>
+    const maybeSession = root.session
+    const snap =
+      maybeSession && typeof maybeSession === "object"
+        ? (maybeSession as Record<string, unknown>)
+        : root
+    const status = snap.status
+    return typeof status === "string" ? status : null
   }, [sse.lastEvent])
 
   const [scanState, setScanState] = useState<ScanState>("idle")
@@ -197,6 +204,8 @@ export default function PosBuyer() {
   const [selectedRewardId, setSelectedRewardId] = useState<string>("")
   const [redeemStep, setRedeemStep] = useState<"verify" | "select" | "waiting">("verify")
   const redeemStepTimerRef = useRef<number | null>(null)
+  const [modeStatus, setModeStatus] = useState<ModeStatus>("idle")
+  const [selectedMode, setSelectedMode] = useState<"PURCHASE" | "REDEEM" | "">("")
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -205,13 +214,25 @@ export default function PosBuyer() {
   const rewardRequestBySessionRef = useRef<Map<string, { rewardId: string; idempotencyKey: string; status: "sending" | "done" | "error" }>>(
     new Map(),
   )
+  const modeRequestBySessionRef = useRef<Map<string, ModeRequestState>>(new Map())
 
   const buyerState = useMemo(() => derivePosBuyerState(sse.activeSession), [sse.activeSession])
   const activeSessionId = sse.activeSessionId
   const sessionUser = useMemo(() => {
-    if (!sse.activeSession || typeof sse.activeSession !== "object") return null
-    return (sse.activeSession as any).user ?? null
+    return sse.activeSession?.user ?? null
   }, [sse.activeSession])
+  const merchantName = useMemo(() => {
+    const n = sse.activeSession?.merchant_name
+    return typeof n === "string" ? n.trim() : null
+  }, [sse.activeSession?.merchant_name])
+  const points = useMemo(() => {
+    const p = sessionUser?.points
+    return typeof p === "number" && Number.isFinite(p) ? p : null
+  }, [sessionUser?.points])
+  const pointsLine = useMemo(() => {
+    if (points === null || !merchantName) return null
+    return `Tenés ${new Intl.NumberFormat("es-AR").format(points)} puntos en ${merchantName}`
+  }, [merchantName, points])
   const displayName = useMemo(() => {
     const first = (sessionUser?.first_name ?? "").trim()
     return first || null
@@ -232,8 +253,9 @@ export default function PosBuyer() {
   const prevSessionIdRef = useRef<string | null>(null)
   const prevSessionId = prevSessionIdRef.current
   const justEnded = !!prevSessionId && !activeSessionId
+  const lastEndStatus = sse.lastSessionEnd?.sessionId === prevSessionId ? sse.lastSessionEnd.status : null
   const endedByCancel =
-    justEnded && (lastEndReasonRef.current === "cancelled" || lastEventStatus === "CANCELLED")
+    justEnded && (lastEndReasonRef.current === "cancelled" || lastEventStatus === "CANCELLED" || lastEndStatus === "CANCELLED")
 
   // Keep prevSessionIdRef in sync without mutating during render.
   useLayoutEffect(() => {
@@ -242,8 +264,7 @@ export default function PosBuyer() {
 
   // Track end reason from SSE snapshots/events so we can avoid showing "thanks" for cancelled sessions.
   useEffect(() => {
-    const status =
-      sse.activeSession && typeof sse.activeSession === "object" ? ((sse.activeSession as any).status as string | undefined) : undefined
+    const status = sse.activeSession?.status
     if (status === "CANCELLED") lastEndReasonRef.current = "cancelled"
     if (status === "CLOSED" || status === "EXPIRED") lastEndReasonRef.current = "normal"
   }, [sse.activeSession])
@@ -252,6 +273,11 @@ export default function PosBuyer() {
     if (lastEventStatus === "CANCELLED") lastEndReasonRef.current = "cancelled"
     if (lastEventStatus === "CLOSED" || lastEventStatus === "EXPIRED") lastEndReasonRef.current = "normal"
   }, [lastEventStatus])
+
+  useEffect(() => {
+    if (lastEndStatus === "CANCELLED") lastEndReasonRef.current = "cancelled"
+    if (lastEndStatus === "CLOSED" || lastEndStatus === "EXPIRED") lastEndReasonRef.current = "normal"
+  }, [lastEndStatus])
 
   // Ensure "thanks" is shown immediately on the render where the session ends,
   // and then persisted via forcingThanks for the timer duration.
@@ -314,8 +340,7 @@ export default function PosBuyer() {
     }
   }, [])
   const redeemSnapshot = useMemo(() => {
-    if (!sse.activeSession || typeof sse.activeSession !== "object") return null
-    return (sse.activeSession as any).redeem ?? null
+    return sse.activeSession?.redeem ?? null
   }, [sse.activeSession])
 
   useEffect(() => {
@@ -330,6 +355,8 @@ export default function PosBuyer() {
       setScanError(null)
       setRewardStatus("idle")
       setSelectedRewardId("")
+      setModeStatus("idle")
+      setSelectedMode("")
       lastFaceScanRef.current = null
       stopCamera()
       setRedeemStep("verify")
@@ -341,6 +368,8 @@ export default function PosBuyer() {
     setScanError(null)
     setRewardStatus("idle")
     setSelectedRewardId("")
+    setModeStatus("idle")
+    setSelectedMode("")
     lastFaceScanRef.current = null
     stopCamera()
     setRedeemStep("verify")
@@ -383,6 +412,15 @@ export default function PosBuyer() {
       redeemStepTimerRef.current = null
     }
   }, [buyerState, uiMode])
+
+  useEffect(() => {
+    // When we leave select_mode (because SSE updated mode), clear any "awaiting" UI state.
+    if (buyerState !== "select_mode") {
+      if (modeStatus === "sending" || modeStatus === "awaiting_sse") setModeStatus("idle")
+      return
+    }
+    // If we stay in select_mode and user already tapped, keep showing "awaiting SSE".
+  }, [buyerState, modeStatus])
 
   useEffect(() => {
     if (buyerState === "waiting_face" || scanState === "scanning") {
@@ -429,7 +467,7 @@ export default function PosBuyer() {
       streamRef.current = stream
       const v = videoRef.current
       if (v) {
-        v.srcObject = stream as any
+        v.srcObject = stream
         await v.play()
       }
     } catch (e) {
@@ -442,7 +480,7 @@ export default function PosBuyer() {
     if (stream) stream.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     const v = videoRef.current
-    if (v) v.srcObject = null as any
+    if (v) v.srcObject = null
   }
 
   const onScan = async () => {
@@ -488,6 +526,28 @@ export default function PosBuyer() {
       markRewardRequestStatus(rewardRequestBySessionRef.current, activeSessionId, "error")
       setRewardStatus("error")
       setRedeemStep("select")
+    }
+  }
+
+  const onSelectMode = async (mode: "PURCHASE" | "REDEEM") => {
+    if (!activeSessionId) return
+    if (buyerState !== "select_mode") return
+    if (modeStatus === "sending" || modeStatus === "awaiting_sse" || modeStatus === "done") return
+    try {
+      const { request, shouldSend } = getOrCreateModeRequest({
+        map: modeRequestBySessionRef.current,
+        sessionId: activeSessionId,
+        mode,
+        createKey: () => globalThis.crypto?.randomUUID?.() ?? `idem_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      })
+      if (!shouldSend) return
+      setSelectedMode(mode)
+      setModeStatus("sending")
+      await setMode(activeSessionId, { mode }, token, request.idempotencyKey)
+      setModeStatus("awaiting_sse")
+    } catch (e) {
+      markModeRequestStatus(modeRequestBySessionRef.current, activeSessionId, "error")
+      setModeStatus("error")
     }
   }
 
@@ -656,6 +716,98 @@ export default function PosBuyer() {
                   <WaitLoader />
                 </motion.div>
                 </motion.div>
+              )}
+
+              {uiMode === "active" && buyerState === "select_mode" && (
+                <>
+                  {selectedMode === "PURCHASE" && (modeStatus === "sending" || modeStatus === "awaiting_sse") ? (
+                    <motion.div
+                      key="select_mode_purchase_pending"
+                      className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
+                      {...motionProps}
+                      variants={contentStagger}
+                    >
+                      <motion.div className={styles.successTitle} variants={item}>
+                        Confirmando compra…
+                      </motion.div>
+                      <motion.div className={styles.successText} variants={item}>
+                        Esperá un momento.
+                      </motion.div>
+                      <motion.div className={styles.waitFooter} variants={item}>
+                        <WaitLoader />
+                      </motion.div>
+                    </motion.div>
+                  ) : selectedMode === "REDEEM" && (modeStatus === "sending" || modeStatus === "awaiting_sse") ? (
+                    <motion.div
+                      key="select_mode_redeem_pending"
+                      className={`${styles.successStage} ${styles.center} ${styles.waitStage}`}
+                      {...motionProps}
+                      variants={contentStagger}
+                    >
+                      <motion.div className={styles.successTitle} variants={item}>
+                        Preparando canje…
+                      </motion.div>
+                      <motion.div className={styles.successText} variants={item}>
+                        Esperá un momento.
+                      </motion.div>
+                      <motion.div className={styles.waitFooter} variants={item}>
+                        <WaitLoader />
+                      </motion.div>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="select_mode" className={styles.catalogStage} {...motionProps} variants={contentStagger}>
+                      <motion.div className={styles.catalogHeader} variants={item}>
+                        <div className={styles.catalogGreeting}>
+                          {`Hola${lastKnownNameRef.current ? ` ${lastKnownNameRef.current}` : ""}!`}
+                        </div>
+                        <div
+                          className={`${styles.catalogTitle} ${
+                            pointsLine && pointsLine.length > 34
+                              ? styles.catalogTitleSmall
+                              : ""
+                          }`}
+                        >
+                          {pointsLine ?? "¿Qué te gustaría hacer?"}
+                        </div>
+                        <div className={styles.catalogSubtitle}>
+                          {pointsLine ? "¿Qué te gustaría hacer?" : "Elegí una opción para continuar."}
+                        </div>
+                      </motion.div>
+
+                      <div className={styles.rewardGrid}>
+                        <button
+                          type="button"
+                          className={`${styles.rewardTile} ${styles.modeTile}`}
+                          onClick={() => onSelectMode("PURCHASE")}
+                          disabled={modeStatus === "sending" || modeStatus === "awaiting_sse"}
+                        >
+                          <div className={styles.rewardIcon} aria-hidden="true">
+                            <div className={styles.rewardIconText}>$</div>
+                          </div>
+                          <div className={styles.modeTileLabel}>Compra</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          className={`${styles.rewardTile} ${styles.modeTile}`}
+                          onClick={() => onSelectMode("REDEEM")}
+                          disabled={modeStatus === "sending" || modeStatus === "awaiting_sse"}
+                        >
+                          <div className={styles.rewardIcon} aria-hidden="true">
+                            <div className={styles.rewardIconText}>R</div>
+                          </div>
+                          <div className={styles.modeTileLabel}>Canje</div>
+                        </button>
+                      </div>
+
+                      {modeStatus === "error" && (
+                        <IonText color="danger">
+                          <div className={styles.cardText}>No pudimos confirmar tu selección. Intentá nuevamente.</div>
+                        </IonText>
+                      )}
+                    </motion.div>
+                  )}
+                </>
               )}
 
               {uiMode === "active" && buyerState === "face_verified_redeem" && redeemStep === "verify" && (

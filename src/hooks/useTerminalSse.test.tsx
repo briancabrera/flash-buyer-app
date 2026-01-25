@@ -23,8 +23,9 @@ function Probe() {
   return (
     <div>
       <div data-testid="activeSessionId">{s.activeSessionId ?? ""}</div>
-      <div data-testid="activeStatus">{(s.activeSession as any)?.status ?? ""}</div>
+      <div data-testid="activeStatus">{s.activeSession?.status ?? ""}</div>
       <div data-testid="lastEventType">{s.lastEvent?.type ?? ""}</div>
+      <div data-testid="lastSessionEndStatus">{s.lastSessionEnd?.status ?? ""}</div>
     </div>
   )
 }
@@ -154,6 +155,22 @@ describe("useTerminalSse (event-driven)", () => {
 
     emitEvent("session_closed", { session_id: "s1" })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("")
+  })
+
+  it("captures late CANCELLED session_updated after session_closed via lastSessionEnd (no activeSession resurrection)", () => {
+    render(<Probe />)
+    act(() => startTerminalSse("tok"))
+
+    emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
+    expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
+
+    emitEvent("session_closed", { session_id: "s1" })
+    expect(screen.getByTestId("activeSessionId").textContent).toBe("")
+
+    // backend may emit CANCELLED update after clearing terminal current session
+    emitEvent("session_updated", { session: { session_id: "s1", status: "CANCELLED" } })
+    expect(screen.getByTestId("activeSessionId").textContent).toBe("")
+    expect(screen.getByTestId("lastSessionEndStatus").textContent).toBe("CANCELLED")
   })
 
   it("reconnection: after reconnect status, current_session can bootstrap activeSession again", () => {

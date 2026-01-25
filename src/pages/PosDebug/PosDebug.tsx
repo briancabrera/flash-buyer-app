@@ -21,6 +21,9 @@ import { PosApiError } from "../../services/posGatewayClient"
 import { setFaceCaptureCallbacks } from "../../utils/faceCaptureBridge"
 import { shouldAutoScan } from "../../utils/posAutoScanGuard"
 import { getOrCreateRewardRequest, markRewardRequestStatus } from "../../utils/redeemGuards"
+import type { components } from "../../../pos-api.types"
+
+type SessionResponse = components["schemas"]["SessionResponse"]
 
 type LogEntry =
   | { ts: number; kind: "sse"; message: string }
@@ -36,14 +39,12 @@ function prettyJson(x: unknown) {
   }
 }
 
-function getSessionStatus(snapshot: unknown): string | null {
-  if (!snapshot || typeof snapshot !== "object") return null
-  return (snapshot as any).status ?? null
+function getSessionStatus(snapshot: SessionResponse | null): string | null {
+  return snapshot?.status ?? null
 }
 
-function getSessionMode(snapshot: unknown): string | null {
-  if (!snapshot || typeof snapshot !== "object") return null
-  return (snapshot as any).mode ?? null
+function getSessionMode(snapshot: SessionResponse | null): string | null {
+  return snapshot?.mode ?? null
 }
 
 export default function PosDebug() {
@@ -77,12 +78,10 @@ export default function PosDebug() {
   const sessionStatus = useMemo(() => getSessionStatus(sse.activeSession), [sse.activeSession])
   const sessionMode = useMemo(() => getSessionMode(sse.activeSession), [sse.activeSession])
   const sessionUser = useMemo(() => {
-    if (!sse.activeSession || typeof sse.activeSession !== "object") return null
-    return (sse.activeSession as any).user ?? null
+    return sse.activeSession?.user ?? null
   }, [sse.activeSession])
   const sessionRedeem = useMemo(() => {
-    if (!sse.activeSession || typeof sse.activeSession !== "object") return null
-    return (sse.activeSession as any).redeem ?? null
+    return sse.activeSession?.redeem ?? null
   }, [sse.activeSession])
 
   const pushLog = (entry: LogEntry) => {

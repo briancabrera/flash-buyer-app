@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: POS API
-  version: 2.7.0
+  version: 2.8.0
   description: Point of Sale API for managing cashier sessions, face verification, and transactions
 
 servers:
@@ -31,7 +31,9 @@ paths:
   /pos/sessions:
     post:
       summary: Create a new cashier session
-      description: Creates a new POS session for a cashier. Terminal is inferred from the Bearer token.
+      description: |
+        Creates a new POS session for a cashier. Terminal is inferred from the Bearer token.
+        If `mode` is omitted, the session is created with `mode=UNSET` and the Buyer selects the mode after FACE_VERIFIED.
       tags:
         - Sessions
       requestBody:
@@ -42,7 +44,6 @@ paths:
               type: object
               required:
                 - cashier_id
-                - mode
               properties:
                 cashier_id:
                   type: string
@@ -50,6 +51,7 @@ paths:
                 mode:
                   type: string
                   enum: [PURCHASE, REDEEM]
+                  nullable: true
                   example: PURCHASE
       responses:
         '201':
@@ -170,7 +172,12 @@ paths:
   /pos/sessions/{sessionId}/face-scan:
     post:
       summary: Perform face scan verification
-      description: Verifies the buyer's face using biometric authentication. Requires Idempotency-Key header.
+      description: |
+        Verifies the buyer's face using biometric authentication.
+        On success, updates the session to FACE_VERIFIED and enriches the session snapshot with:
+        - user.first_name / user.last_name (from `users`)
+        - merchant_name + user.points for the session merchant
+        Requires Idempotency-Key header.
       tags:
         - Sessions
       parameters:
@@ -239,6 +246,53 @@ paths:
           $ref: '#/components/responses/BiometricUnavailable'
         '504':
           $ref: '#/components/responses/BiometricTimeout'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/mode:
+    post:
+      summary: Select mode after face verification (buyer step)
+      description: |
+        Buyer selects session mode after FACE_VERIFIED. Sets mode and enriches the session snapshot with merchant_name and the user's points balance for that merchant.
+        Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetModeRequest'
+      responses:
+        '200':
+          description: Mode selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -665,6 +719,9 @@ components:
           format: uuid
         merchant_id:
           type: string
+        merchant_name:
+          type: string
+          nullable: true
         terminal_id:
           type: string
         cashier_id:
@@ -686,6 +743,9 @@ components:
               nullable: true
             last_name:
               type: string
+              nullable: true
+            points:
+              type: integer
               nullable: true
             face_id:
               type: string
@@ -762,6 +822,15 @@ components:
         reward_id:
           type: string
           description: Reward ID to redeem
+
+    SetModeRequest:
+      type: object
+      required:
+        - mode
+      properties:
+        mode:
+          type: string
+          enum: [PURCHASE, REDEEM]
 
     RedeemCommitResponse:
       allOf:

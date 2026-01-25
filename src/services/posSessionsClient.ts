@@ -47,3 +47,16 @@ export async function redeemSelect(
   return res
 }
 
+export async function setMode(
+  sessionId: string,
+  payload: { mode: "PURCHASE" | "REDEEM" },
+  token: string,
+  idempotencyKey?: string,
+): Promise<{ data: unknown; status: number; requestId?: string }> {
+  const res = await posGatewayClient.request("POST", `/pos/sessions/${sessionId}/mode`, {
+    token,
+    idempotencyKey: idempotencyKey ?? newIdempotencyKey(),
+    body: payload,
+  })
+  return res
+}

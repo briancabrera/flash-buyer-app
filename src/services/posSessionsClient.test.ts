@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { redeemSelect, setReward } from "./posSessionsClient"
+import { redeemSelect, setMode, setReward } from "./posSessionsClient"
 
 vi.mock("./posGatewayClient", () => {
   return {
@@ -27,6 +27,16 @@ describe("posSessionsClient", () => {
       token: "tok_2",
       idempotencyKey: "idem-2",
       body: { reward_id: "r2" },
+    })
+  })
+
+  it("setMode sends POST /pos/sessions/:id/mode with auth + idempotency", async () => {
+    const { posGatewayClient } = await import("./posGatewayClient")
+    await setMode("sess_3", { mode: "REDEEM" }, "tok_3", "idem-3")
+    expect(posGatewayClient.request).toHaveBeenCalledWith("POST", "/pos/sessions/sess_3/mode", {
+      token: "tok_3",
+      idempotencyKey: "idem-3",
+      body: { mode: "REDEEM" },
     })
   })
 })
