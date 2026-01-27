@@ -1,0 +1,1053 @@
+openapi: 3.0.3
+info:
+  title: POS API
+  version: 2.8.0
+  description: Point of Sale API for managing cashier sessions, face verification, and transactions
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /pos/sessions:
+    post:
+      summary: Create a new cashier session
+      description: |
+        Creates a new POS session for a cashier. Terminal is inferred from the Bearer token.
+        If `mode` is omitted, the session is created with `mode=UNSET` and the Buyer selects the mode after FACE_VERIFIED.
+      tags:
+        - Sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cashier_id
+              properties:
+                cashier_id:
+                  type: string
+                  example: cs_1
+                mode:
+                  type: string
+                  enum: [PURCHASE, REDEEM]
+                  nullable: true
+                  example: PURCHASE
+      responses:
+        '201':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              example:
+                session_id: 8c2b1a2c-7e5b-4c2b-9f7c-1d2e3f4a5b6c
+                merchant_id: m_1
+                terminal_id: t_1
+                cashier_id: cs_1
+                mode: PURCHASE
+                status: WAITING_FACE
+                created_at: "2026-01-01T00:00:00.000Z"
+                expires_at: "2026-01-01T00:02:00.000Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/amount:
+    post:
+      summary: Set purchase amount
+      description: Sets the purchase amount for PURCHASE mode sessions
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount_cents
+              properties:
+                amount_cents:
+                  type: integer
+                  minimum: 1
+                  example: 10000
+      responses:
+        '200':
+          description: Amount set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/reward:
+    post:
+      summary: Set reward for redemption
+      description: Sets the reward for REDEEM mode sessions
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reward_id
+              properties:
+                reward_id:
+                  type: string
+                  example: r_1
+      responses:
+        '200':
+          description: Reward set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/face-scan:
+    post:
+      summary: Perform face scan verification
+      description: |
+        Verifies the buyer's face using biometric authentication.
+        On success, updates the session to FACE_VERIFIED and enriches the session snapshot with:
+        - user.first_name / user.last_name (from `users`)
+        - merchant_name + user.points for the session merchant
+        Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                imageBase64:
+                  type: string
+                  format: base64
+                  description: Base64 encoded face image
+                  maxLength: 1000000
+                faceToken:
+                  type: string
+                  description: Alternative token-based face verification (future use)
+      responses:
+        '200':
+          description: Face verification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [VERIFIED]
+                    example: VERIFIED
+                  user_id:
+                    type: string
+                    example: user-123
+                  face_id:
+                    type: string
+                    example: face-456
+                  similarity:
+                    type: number
+                    format: float
+                    example: 0.95
+                  session:
+                    $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '503':
+          $ref: '#/components/responses/BiometricUnavailable'
+        '504':
+          $ref: '#/components/responses/BiometricTimeout'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/mode:
+    post:
+      summary: Select mode after face verification (buyer step)
+      description: |
+        Buyer selects session mode after FACE_VERIFIED. Sets mode and enriches the session snapshot with merchant_name and the user's points balance for that merchant.
+        Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetModeRequest'
+      responses:
+        '200':
+          description: Mode selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/purchase/commit:
+    post:
+      summary: PURCHASE single-commit (amount + confirm + close)
+      description: |
+        Recommended PURCHASE flow. Parses a human amount string into cents, commits the purchase, and closes the session in a single atomic operation.
+        Requires Idempotency-Key header.
+      tags:
+        - Transactions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseCommitRequest'
+      responses:
+        '200':
+          description: Purchase committed and session closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseCommitResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/redeem/select:
+    post:
+      summary: REDEEM select reward (generates voucher_code)
+      description: |
+        Buyer selects a reward for a REDEEM session. Generates a voucher_code and moves the session to READY_TO_CONFIRM.
+        Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemSelectRequest'
+      responses:
+        '200':
+          description: Reward selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/redeem/commit:
+    post:
+      summary: REDEEM commit (confirm + close)
+      description: |
+        Vendor confirms a REDEEM session that is READY_TO_CONFIRM. Commits redemption and closes session in one atomic operation.
+        Requires Idempotency-Key header.
+      tags:
+        - Transactions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Redemption committed and session closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemCommitResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/confirm:
+    post:
+      summary: Confirm and commit transaction
+      description: Commits the transaction (purchase or redemption). Requires Idempotency-Key header.
+      tags:
+        - Transactions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      responses:
+        '200':
+          description: Transaction confirmed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/events-ticket:
+    post:
+      summary: Issue SSE ticket
+      description: Generates a ticket for EventSource connections, valid for the session lifetime.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ticket issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SseTicketResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/events:
+    get:
+      summary: Session events stream (SSE)
+      description: Server-Sent Events stream for session updates. Requires a valid SSE ticket in the query param.
+      tags:
+        - Sessions
+      security: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: ticket
+          in: query
+          required: true
+          schema:
+            type: string
+          description: SSE ticket
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /pos/terminals/events-ticket:
+    post:
+      summary: Issue terminal SSE ticket
+      description: Generates a ticket for terminal EventSource connections.
+      tags:
+        - Terminals
+      responses:
+        '200':
+          description: Ticket issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SseTicketResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/terminals/events:
+    get:
+      summary: Terminal events stream (SSE)
+      description: |
+        Server-Sent Events stream for terminal updates. Requires a valid SSE ticket in the query param.
+        Events: connected, terminal_state, current_session, session_created, session_updated, session_closed, heartbeat.
+      tags:
+        - Terminals
+      security: []
+      parameters:
+        - name: ticket
+          in: query
+          required: true
+          schema:
+            type: string
+          description: SSE ticket
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /pos/sessions/{sessionId}/close:
+    post:
+      summary: Close session
+      description: Closes an active session
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session closed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/TerminalDisabled'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/sessions/{sessionId}/cancel:
+    post:
+      summary: Cancel session (force CANCELLED)
+      description: |
+        Cancels a session regardless of its current status. Sets status=CANCELLED, emits SSE, clears terminal current session if needed,
+        and deletes the session from Redis (no record kept). Requires Idempotency-Key header.
+      tags:
+        - Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            description: Unique key for idempotent requests
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Session cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pos/rewards:
+    get:
+      summary: List rewards for authenticated merchant
+      description: |
+        Returns ACTIVE rewards for the merchant associated with the authenticated terminal. Disabled rewards are not returned.
+        If `session_id` is provided (and the session has a verified user), items include `can_redeem` per reward for that user.
+      tags:
+        - Rewards
+      parameters:
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional POS session id to compute per-user redeemability (`can_redeem`)
+      responses:
+        '200':
+          description: Rewards list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewardsListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Terminal authentication token (identifies the POS terminal)
+
+  schemas:
+    SseTicketResponse:
+      type: object
+      required:
+        - ticket
+        - expires_in_seconds
+      properties:
+        ticket:
+          type: string
+          description: SSE ticket
+        expires_in_seconds:
+          type: integer
+          example: 60
+    SessionResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+        merchant_name:
+          type: string
+          nullable: true
+        terminal_id:
+          type: string
+        cashier_id:
+          type: string
+        mode:
+          type: string
+          enum: [UNSET, PURCHASE, REDEEM]
+        status:
+          type: string
+          enum: [OPEN, WAITING_FACE, FACE_VERIFIED, WAITING_ACTION, READY_TO_CONFIRM, COMMITTING, COMMITTED, CLOSED, CANCELLED, EXPIRED, FAILED]
+        user:
+          type: object
+          nullable: true
+          properties:
+            user_id:
+              type: string
+            first_name:
+              type: string
+              nullable: true
+            last_name:
+              type: string
+              nullable: true
+            points:
+              type: integer
+              nullable: true
+            face_id:
+              type: string
+              nullable: true
+            similarity:
+              type: number
+              format: float
+              nullable: true
+            verified_at:
+              type: string
+              format: date-time
+              nullable: true
+        purchase:
+          type: object
+          nullable: true
+          properties:
+            amount_cents:
+              type: integer
+        redeem:
+          type: object
+          nullable: true
+          properties:
+            reward_id:
+              type: string
+            voucher_code:
+              type: string
+            reward_name:
+              type: string
+              nullable: true
+            reward_description:
+              type: string
+              nullable: true
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PurchaseCommitRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: string
+          description: Human decimal amount string (e.g. "1234", "1234.5", "1234.50")
+          example: "1234.50"
+        currency:
+          type: string
+          nullable: true
+          description: Optional currency code for future use (ignored for now)
+          example: "UYU"
+
+    PurchaseCommitResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConfirmResponse'
+        - type: object
+          required:
+            - session
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionResponse'
+
+    RedeemSelectRequest:
+      type: object
+      required:
+        - reward_id
+      properties:
+        reward_id:
+          type: string
+          description: Reward ID to redeem
+
+    SetModeRequest:
+      type: object
+      required:
+        - mode
+      properties:
+        mode:
+          type: string
+          enum: [PURCHASE, REDEEM]
+
+    RedeemCommitResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConfirmResponse'
+        - type: object
+          required:
+            - session
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionResponse'
+
+    ConfirmResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        status:
+          type: string
+          enum: [COMMITTED]
+        points_delta:
+          type: integer
+        redemption_id:
+          type: string
+          nullable: true
+        voucher_code:
+          type: string
+          nullable: true
+
+    Reward:
+      type: object
+      properties:
+        id:
+          type: string
+        merchant_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        cost_points:
+          type: integer
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED]
+        created_at:
+          type: string
+          format: date-time
+        is_repeatable:
+          type: boolean
+          description: If true, the same user can redeem this reward multiple times.
+        can_redeem:
+          type: boolean
+          nullable: true
+          description: If `session_id` is provided, indicates whether the current session user can redeem this reward.
+
+    RewardsListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reward'
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - request_id
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            request_id:
+              type: string
+
+  responses:
+    BadRequest:
+      description: Invalid payload or validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_PAYLOAD
+              message: merchant_id and terminal_id must not be provided
+              request_id: req-123
+
+    ValidationError:
+      description: Request body validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: "Validation failed: field is required"
+              request_id: req-123
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Unauthorized
+              request_id: req-123
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: FORBIDDEN
+              message: Forbidden
+              request_id: req-123
+
+    TerminalDisabled:
+      description: Terminal is disabled
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TERMINAL_DISABLED
+              message: Terminal is disabled
+              request_id: req-123
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: SESSION_NOT_FOUND
+              message: Session not found
+              request_id: req-123
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: LOCK_ACQUISITION_FAILED
+              message: Another confirmation is in progress for this session
+              request_id: req-123
+
+    IdempotencyConflict:
+      description: Idempotency key conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: IDEMPOTENCY_KEY_CONFLICT
+              message: Idempotency-Key already used with a different request payload
+              request_id: req-123
+
+    BiometricUnavailable:
+      description: Biometric service unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BIOMETRIC_UNAVAILABLE
+              message: Biometric service is unavailable
+              request_id: req-123
+
+    BiometricTimeout:
+      description: Biometric service timeout
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BIOMETRIC_TIMEOUT
+              message: Biometric service timed out
+              request_id: req-123
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_SERVER_ERROR
+              message: An unexpected error occurred
+              request_id: req-123
+
+security:
+  - BearerAuth: []

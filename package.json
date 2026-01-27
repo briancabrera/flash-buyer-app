@@ -4,7 +4,7 @@
   "version": "0.13.3",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "ionic serve",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test.e2e": "cypress run",
@@ -34,6 +34,7 @@
     "chart.js": "^4.4.6",
     "date-fns": "^4.1.0",
     "framer-motion": "^11.18.2",
+    "gsap": "^3.12.5",
     "ionicons": "^7.0.0",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",

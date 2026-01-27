@@ -1,22 +1,28 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import {
   IonContent,
   IonPage,
+  IonButton,
   useIonViewWillEnter,
   useIonViewDidEnter,
   useIonViewWillLeave,
   useIonViewDidLeave,
 } from "@ionic/react";
 import { useIonRouter } from "@ionic/react";
+import { useLocation } from "react-router";
 import { motion } from "framer-motion";
 import { fetchCurrentPayment } from "../../services/payment.service";
 import { usePayment } from "../../context/PaymentContext";
+import { captureFrameFromVideo } from "../../utils/captureFrame";
+import { clearFaceCaptureCallbacks, getFaceCaptureCallbacks, type FaceCaptureCallbacks } from "../../utils/faceCaptureBridge";
+import { FaceCaptureView } from "../../components/FaceCaptureView/FaceCaptureView";
 import styles from "./FacialRecognition.module.scss";
 
 type Phase = "boot" | "scanning" | "success";
 
 const FacialRecognition: React.FC = () => {
   const router = useIonRouter();
+  const location = useLocation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -29,6 +35,19 @@ const FacialRecognition: React.FC = () => {
 
   const [phase, setPhase] = useState<Phase>("boot");
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+
+  const captureCallbacksRef = useRef<FaceCaptureCallbacks | null>(null);
+  const isCaptureMode = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("capture") === "1" || params.get("mode") === "capture";
+  }, [location.search]);
+  const autoCapture = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("auto") === "1";
+  }, [location.search]);
+  const hasAutoCapturedRef = useRef(false);
+  const autoCaptureTimerRef = useRef<number | null>(null);
 
   const clearAllTimers = () => {
     if (toSuccessRef.current) { window.clearTimeout(toSuccessRef.current); toSuccessRef.current = null; }
@@ -65,6 +84,43 @@ const FacialRecognition: React.FC = () => {
     }
   };
 
+  const handleCapture = () => {
+    if (!isActiveRef.current) return;
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      setCaptureError(null);
+      if (!captureCallbacksRef.current) {
+        setCaptureError("No capture callbacks found. Please retry from PosDebug.");
+        return;
+      }
+      const captured = captureFrameFromVideo(v, {
+        targetWidth: 720,
+        jpegQuality: 0.7,
+        maxBase64Length: 1_000_000,
+      });
+    captureCallbacksRef.current?.onCapture?.({
+        dataUrl: captured.dataUrl,
+        imageBase64: captured.imageBase64,
+        base64Length: captured.base64Length,
+        width: captured.width,
+        height: captured.height,
+      });
+      clearFaceCaptureCallbacks();
+      captureCallbacksRef.current = null;
+      router.push("/pos-debug", "back");
+    } catch (err) {
+      setCaptureError(String(err));
+    }
+  };
+
+  const handleCancel = () => {
+    captureCallbacksRef.current?.onCancel?.();
+    clearFaceCaptureCallbacks();
+    captureCallbacksRef.current = null;
+    router.push("/pos-debug", "back");
+  };
+
   // ---------- lifecycle: ENTER ----------
   const onVisibilityRef = useRef<() => void>();
   useIonViewWillEnter(() => {
@@ -73,6 +129,9 @@ const FacialRecognition: React.FC = () => {
     hasNavigatedRef.current = false;
     setPhase("boot");
     setIsCameraReady(false);
+    setCaptureError(null);
+    captureCallbacksRef.current = getFaceCaptureCallbacks();
+    hasAutoCapturedRef.current = false;
   });
 
   useIonViewDidEnter(() => {
@@ -97,16 +156,18 @@ const FacialRecognition: React.FC = () => {
             if (!isActiveRef.current) return;
             setIsCameraReady(true);
             setPhase("scanning");
-            // 3s de escaneo → éxito
-            toSuccessRef.current = window.setTimeout(() => {
-              if (!isActiveRef.current) return;
-              setPhase("success");
-              toRouteRef.current = window.setTimeout(() => {
+            if (!isCaptureMode) {
+              // 3s de escaneo → éxito
+              toSuccessRef.current = window.setTimeout(() => {
                 if (!isActiveRef.current) return;
-                stopCamera();
-                handleFaceOk();
-              }, 1200);
-            }, 3000);
+                setPhase("success");
+                toRouteRef.current = window.setTimeout(() => {
+                  if (!isActiveRef.current) return;
+                  stopCamera();
+                  handleFaceOk();
+                }, 1200);
+              }, 3000);
+            }
           };
           v.addEventListener("canplay", onCanPlay, { once: true });
           v.play?.().catch(() => {});
@@ -116,14 +177,16 @@ const FacialRecognition: React.FC = () => {
         if (!isActiveRef.current) return;
         setIsCameraReady(false);
         setPhase("scanning");
-        toSuccessRef.current = window.setTimeout(() => {
-          if (!isActiveRef.current) return;
-          setPhase("success");
-          toRouteRef.current = window.setTimeout(() => {
+        if (!isCaptureMode) {
+          toSuccessRef.current = window.setTimeout(() => {
             if (!isActiveRef.current) return;
-            handleFaceOk();
-          }, 1200);
-        }, 3000);
+            setPhase("success");
+            toRouteRef.current = window.setTimeout(() => {
+              if (!isActiveRef.current) return;
+              handleFaceOk();
+            }, 1200);
+          }, 3000);
+        }
       }
     };
 
@@ -152,9 +215,34 @@ const FacialRecognition: React.FC = () => {
       isActiveRef.current = false;
       clearAllTimers();
       if (onVisibilityRef.current) document.removeEventListener("visibilitychange", onVisibilityRef.current);
+      if (autoCaptureTimerRef.current) {
+        window.clearTimeout(autoCaptureTimerRef.current);
+        autoCaptureTimerRef.current = null;
+      }
       stopCamera();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCaptureMode || !autoCapture) return;
+    if (!isCameraReady) return;
+    if (hasAutoCapturedRef.current) return;
+    hasAutoCapturedRef.current = true;
+    autoCaptureTimerRef.current = window.setTimeout(() => {
+      if (!captureCallbacksRef.current) {
+        setCaptureError("Auto-capture failed: missing callbacks. Please retry.");
+        return;
+      }
+      handleCapture();
+      autoCaptureTimerRef.current = null;
+    }, 500);
+    return () => {
+      if (autoCaptureTimerRef.current) {
+        window.clearTimeout(autoCaptureTimerRef.current);
+        autoCaptureTimerRef.current = null;
+      }
+    };
+  }, [autoCapture, isCameraReady, isCaptureMode]);
 
   const overlayOpacity = !isCameraReady ? 0 : phase === "success" ? 0 : 1;
 
@@ -162,22 +250,7 @@ const FacialRecognition: React.FC = () => {
     <IonPage className={styles.facialRecognitionPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
-          <video ref={videoRef} autoPlay playsInline muted className={styles.cameraFeed} />
-
-          <motion.div
-            className={styles.overlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: overlayOpacity }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            <div className={styles.frame}>
-              <div className={`${styles.corner} ${styles.tl}`} />
-              <div className={`${styles.corner} ${styles.tr}`} />
-              <div className={`${styles.corner} ${styles.bl}`} />
-              <div className={`${styles.corner} ${styles.br}`} />
-              {phase === "scanning" && <div className={styles.scanBand} />}
-            </div>
-          </motion.div>
+          <FaceCaptureView videoRef={videoRef} overlayOpacity={overlayOpacity} isScanning={phase === "scanning"} />
 
           {phase === "success" && (
             <motion.div
@@ -228,6 +301,23 @@ const FacialRecognition: React.FC = () => {
                 />
               </motion.svg>
             </motion.div>
+          )}
+
+          {isCaptureMode && (
+            <div className={styles.captureControls}>
+              <div className={styles.captureRow}>
+                {!autoCapture && (
+                  <IonButton onClick={handleCapture} disabled={!isCameraReady}>
+                    Capture
+                  </IonButton>
+                )}
+                <IonButton color="medium" onClick={handleCancel}>
+                  Cancel
+                </IonButton>
+              </div>
+              {autoCapture && !captureError && <div className={styles.captureHint}>Auto scanning…</div>}
+              {captureError && <div className={styles.captureError}>{captureError}</div>}
+            </div>
           )}
         </div>
       </IonContent>
