@@ -20,6 +20,10 @@ const Home: React.FC = () => {
     router.push("/pos")
   }
 
+  const handleSettings = () => {
+    router.push("/settings")
+  }
+
   return (
     <IonPage className={styles.homePage}>
       <IonContent fullscreen>
@@ -36,6 +40,9 @@ const Home: React.FC = () => {
               </IonButton>
               <IonButton expand="block" size="large" onClick={handlePosDebug} className={styles.posButton}>
                 POS Debug
+              </IonButton>
+              <IonButton expand="block" fill="outline" onClick={handleSettings} className={styles.posButton}>
+                Settings
               </IonButton>
             </>
           )}

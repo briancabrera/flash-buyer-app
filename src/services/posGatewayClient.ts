@@ -1,3 +1,5 @@
+import { apiFetch } from "../lib/api"
+
 export type PosApiErrorPayload = {
   error: {
     code: string
@@ -23,7 +25,6 @@ export class PosApiError extends Error {
 }
 
 export type PosGatewayRequestOptions = {
-  token?: string
   idempotencyKey?: string
   body?: unknown
   /**
@@ -85,7 +86,6 @@ export function createPosGatewayClient(opts: PosGatewayClientOptions) {
 
     const headers: Record<string, string> = pickAllowlistedHeaders(options.headers)
 
-    if (options.token) headers["authorization"] = `Bearer ${options.token}`
     if (options.idempotencyKey) headers["idempotency-key"] = options.idempotencyKey
 
     // Si hay body, por default mandamos JSON.
@@ -127,5 +127,6 @@ export function createPosGatewayClient(opts: PosGatewayClientOptions) {
 
 export const posGatewayClient = createPosGatewayClient({
   baseUrl: import.meta.env.VITE_GATEWAY_URL ?? "",
+  fetchImpl: apiFetch,
 })
 

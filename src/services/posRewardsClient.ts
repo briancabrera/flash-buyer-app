@@ -19,18 +19,17 @@ export type PosRewardsListResponse = {
   items: PosReward[]
 }
 
-export async function listRewards(token: string, sessionId?: string): Promise<PosReward[]> {
+export async function listRewards(sessionId?: string): Promise<PosReward[]> {
   const path = sessionId ? `/pos/rewards?session_id=${encodeURIComponent(sessionId)}` : "/pos/rewards"
-  const { data } = await posGatewayClient.request<PosRewardsListResponse>("GET", path, { token })
+  const { data } = await posGatewayClient.request<PosRewardsListResponse>("GET", path)
   return data.items ?? []
 }
 
 export async function listRewardsWithMeta(
-  token: string,
   sessionId?: string,
 ): Promise<{ items: PosReward[]; status: number; requestId?: string }> {
   const path = sessionId ? `/pos/rewards?session_id=${encodeURIComponent(sessionId)}` : "/pos/rewards"
-  const res = await posGatewayClient.request<PosRewardsListResponse>("GET", path, { token })
+  const res = await posGatewayClient.request<PosRewardsListResponse>("GET", path)
   return { items: res.data.items ?? [], status: res.status, requestId: res.requestId }
 }
 

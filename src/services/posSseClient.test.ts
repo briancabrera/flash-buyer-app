@@ -59,7 +59,7 @@ describe("posSseClient", () => {
       rand: () => 0.5,
     })
 
-    client.subscribeTerminalEvents("tok", { onStatus: () => {} })
+    client.subscribeTerminalEvents({ onStatus: () => {} })
     await flushAsync()
 
     expect(createTicket).toHaveBeenCalledTimes(1)
@@ -100,7 +100,7 @@ describe("posSseClient", () => {
       rand: () => 0.5,
     })
 
-    const sub = client.subscribeTerminalEvents("tok", { onStatus: () => {} })
+    const sub = client.subscribeTerminalEvents({ onStatus: () => {} })
     await flushAsync()
 
     expect(createTicket).toHaveBeenCalledTimes(1)
@@ -152,7 +152,7 @@ describe("posSseClient", () => {
       rand: () => 0.0,
     })
 
-    const sub = client.subscribeTerminalEvents("tok", { onStatus: () => {}, onReconnect })
+    const sub = client.subscribeTerminalEvents({ onStatus: () => {}, onReconnect })
     await flushAsync()
 
     expect(createTicket).toHaveBeenCalledTimes(1)
@@ -206,7 +206,7 @@ describe("posSseClient", () => {
       rand: () => 0.5,
     })
 
-    const sub = client.subscribeTerminalEvents("tok", { onStatus: () => {} })
+    const sub = client.subscribeTerminalEvents({ onStatus: () => {} })
     await flushAsync()
 
     expect(createTicket).toHaveBeenCalledTimes(1)
@@ -247,7 +247,7 @@ describe("posSseClient", () => {
       rand: () => 0.0, // deterministic jitter
     })
 
-    const sub = client.subscribeTerminalEvents("tok", { onStatus: () => {}, onReconnect })
+    const sub = client.subscribeTerminalEvents({ onStatus: () => {}, onReconnect })
     await flushAsync()
     expect(esInstances.length).toBe(1)
 

@@ -13,6 +13,8 @@ import { PaymentProvider } from "./context/PaymentContext"
 import { isPosBuyerEnabled } from "./services/featureFlags"
 import PosDebug from "./pages/PosDebug/PosDebug"
 import PosBuyer from "./pages/PosBuyer/PosBuyer"
+import Settings from "./pages/Settings/Settings"
+import { TerminalProvisioningGate } from "./components/TerminalProvisioningGate"
 
 setupIonicReact({
   animated: true,
@@ -25,41 +27,46 @@ const App: React.FC = () => {
   const posEnabled = isPosBuyerEnabled()
   return (
     <IonApp>
-      <PaymentProvider>
-        <FloatingLightningBolts />
-        <IonReactRouter>
-          <IonRouterOutlet>
-            <Route exact path="/home">
-              <Home />
-            </Route>
-            <Route exact path="/payment-pin">
-              <PaymentPin />
-            </Route>
-            <Route exact path="/facial-recognition">
-              <FacialRecognition />
-            </Route>
-            <Route exact path="/select-payment-method">
-              <SelectPaymentMethod />
-            </Route>
-            <Route exact path="/confirm-payment">
-              <ConfirmPayment />
-            </Route>
-            {posEnabled && (
-              <Route exact path="/pos-debug">
-                <PosDebug />
+      <TerminalProvisioningGate>
+        <PaymentProvider>
+          <FloatingLightningBolts />
+          <IonReactRouter>
+            <IonRouterOutlet>
+              <Route exact path="/home">
+                <Home />
               </Route>
-            )}
-            {posEnabled && (
-              <Route exact path="/pos">
-                <PosBuyer />
+              <Route exact path="/settings">
+                <Settings />
               </Route>
-            )}
-            <Route exact path="/">
-              <Redirect to="/home" />
-            </Route>
-          </IonRouterOutlet>
-        </IonReactRouter>
-      </PaymentProvider>
+              <Route exact path="/payment-pin">
+                <PaymentPin />
+              </Route>
+              <Route exact path="/facial-recognition">
+                <FacialRecognition />
+              </Route>
+              <Route exact path="/select-payment-method">
+                <SelectPaymentMethod />
+              </Route>
+              <Route exact path="/confirm-payment">
+                <ConfirmPayment />
+              </Route>
+              {posEnabled && (
+                <Route exact path="/pos-debug">
+                  <PosDebug />
+                </Route>
+              )}
+              {posEnabled && (
+                <Route exact path="/pos">
+                  <PosBuyer />
+                </Route>
+              )}
+              <Route exact path="/">
+                <Redirect to="/home" />
+              </Route>
+            </IonRouterOutlet>
+          </IonReactRouter>
+        </PaymentProvider>
+      </TerminalProvisioningGate>
     </IonApp>
   )
 }

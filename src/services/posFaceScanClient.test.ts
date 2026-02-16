@@ -3,7 +3,7 @@ import { PosApiError } from "./posGatewayClient"
 import { createPosFaceScanClient } from "./posFaceScanClient"
 
 describe("posFaceScanClient", () => {
-  it("builds URL and sends Authorization + Idempotency-Key", async () => {
+  it("builds URL and sends Idempotency-Key", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const headers = (init?.headers ?? {}) as Record<string, string>
       return new Response(JSON.stringify({ ok: true, url, headers }), {
@@ -13,11 +13,10 @@ describe("posFaceScanClient", () => {
     })
 
     const client = createPosFaceScanClient({ baseUrl: "http://gw", fetchImpl: fetchMock as any })
-    const res = await client.faceScan("sess_1", "tok_abc", "data:image/jpeg;base64,aaa", "idem-1")
+    const res = await client.faceScan("sess_1", "data:image/jpeg;base64,aaa", "idem-1")
 
     expect(res.status).toBe(200)
     expect((res.data as any).url).toBe("http://gw/pos/sessions/sess_1/face-scan")
-    expect((res.data as any).headers.authorization).toBe("Bearer tok_abc")
     expect((res.data as any).headers["idempotency-key"]).toBe("idem-1")
   })
 
@@ -33,9 +32,7 @@ describe("posFaceScanClient", () => {
 
     const client = createPosFaceScanClient({ baseUrl: "http://gw", fetchImpl: fetchMock as any })
 
-    await expect(client.faceScan("sess_1", "tok", "data:image/jpeg;base64,aaa", "idem-2")).rejects.toMatchObject<
-      Partial<PosApiError>
-    >({
+    await expect(client.faceScan("sess_1", "data:image/jpeg;base64,aaa", "idem-2")).rejects.toMatchObject<Partial<PosApiError>>({
       name: "PosApiError",
       status: 504,
       code: "BIOMETRIC_TIMEOUT",

@@ -10,15 +10,15 @@ vi.mock("./posGatewayClient", () => {
 })
 
 describe("posRewardsClient", () => {
-  it("listRewards calls GET /pos/rewards with token", async () => {
+  it("listRewards calls GET /pos/rewards", async () => {
     const { posGatewayClient } = await import("./posGatewayClient")
-    await listRewards("tok_1")
-    expect(posGatewayClient.request).toHaveBeenCalledWith("GET", "/pos/rewards", { token: "tok_1" })
+    await listRewards()
+    expect(posGatewayClient.request).toHaveBeenCalledWith("GET", "/pos/rewards")
   })
 
   it("listRewards can pass session_id to compute can_redeem", async () => {
     const { posGatewayClient } = await import("./posGatewayClient")
-    await listRewards("tok_2", "sess_123")
-    expect(posGatewayClient.request).toHaveBeenCalledWith("GET", "/pos/rewards?session_id=sess_123", { token: "tok_2" })
+    await listRewards("sess_123")
+    expect(posGatewayClient.request).toHaveBeenCalledWith("GET", "/pos/rewards?session_id=sess_123")
   })
 })

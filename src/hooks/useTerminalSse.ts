@@ -40,7 +40,7 @@ const initialState: TerminalSseState = {
 }
 let state: TerminalSseState = initialState
 
-let activeToken: string | null = null
+let started = false
 let unsubscribe: (() => void) | null = null
 let listeners = new Set<Listener>()
 const BOOTSTRAP_GRACE_MS = 2000
@@ -103,20 +103,16 @@ function coerceSessionSnapshot(payload: unknown): SessionResponse | null {
   return snap as unknown as SessionResponse
 }
 
-export function startTerminalSse(token: string) {
-  if (!token) throw new Error("startTerminalSse requires a token")
+export function startTerminalSse() {
+  if (started && unsubscribe) return
 
-  // Ya existe conexión para este token
-  if (activeToken === token && unsubscribe) return
-
-  // Token cambió: cerramos anterior
+  // Ensure clean singleton state before starting.
   stopTerminalSse()
-
-  activeToken = token
+  started = true
   setState({ connectionStatus: "connecting", ticket: null })
 
   let subRef: { getTicket: () => string | null; stop: () => void } | null = null
-  subRef = posSseClient.subscribeTerminalEvents(token, {
+  subRef = posSseClient.subscribeTerminalEvents({
     onStatus: (s) => setState({ connectionStatus: s, ticket: subRef?.getTicket() ?? null }),
     onEvent: (evt) => {
       setState({ lastEvent: evt })
@@ -210,7 +206,7 @@ export function stopTerminalSse() {
     unsubscribe?.()
   } finally {
     unsubscribe = null
-    activeToken = null
+    started = false
     lastSessionSeedAtMs = 0
     lastSessionClearedAtMs = 0
     lastClearedSessionId = null
