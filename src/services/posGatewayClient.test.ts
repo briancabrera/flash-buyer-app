@@ -44,12 +44,12 @@ describe("posGatewayClient", () => {
 
     const client = createPosGatewayClient({ baseUrl: "http://gw", fetchImpl: fetchMock as any })
 
-    await expect(client.request("GET", "/pos/rewards")).rejects.toMatchObject<Partial<PosApiError>>({
+    await expect(client.request("GET", "/pos/rewards")).rejects.toMatchObject({
       name: "PosApiError",
       status: 401,
       code: "UNAUTHORIZED",
       requestId: "req-123",
-    })
+    } satisfies Partial<PosApiError>)
   })
 })
 

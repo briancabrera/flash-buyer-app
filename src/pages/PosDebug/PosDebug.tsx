@@ -4,6 +4,8 @@ import {
   IonCard,
   IonCardContent,
   IonContent,
+  IonItem,
+  IonLabel,
   IonList,
   IonPage,
   IonText,
