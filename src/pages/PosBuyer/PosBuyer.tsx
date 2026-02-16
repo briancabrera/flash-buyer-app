@@ -181,7 +181,6 @@ function ThanksHeart() {
 
 export default function PosBuyer() {
   const sse = useTerminalSse()
-  const token = import.meta.env.VITE_TERMINAL_TOKEN ?? ""
 
   const lastEventStatus = useMemo(() => {
     const evt = sse.lastEvent
@@ -344,10 +343,9 @@ export default function PosBuyer() {
   }, [sse.activeSession])
 
   useEffect(() => {
-    if (!token) return
-    startTerminalSse(token)
+    startTerminalSse()
     return () => stopTerminalSse()
-  }, [token])
+  }, [])
 
   useEffect(() => {
     if (!activeSessionId) {
@@ -449,7 +447,7 @@ export default function PosBuyer() {
     const load = async () => {
       setRewardStatus("loading")
       try {
-        const res = await listRewardsWithMeta(token, activeSessionId)
+        const res = await listRewardsWithMeta(activeSessionId)
         rewardsBySessionRef.current.set(activeSessionId, res.items)
         setRewards(res.items)
         setRewardStatus("ready")
@@ -458,7 +456,7 @@ export default function PosBuyer() {
       }
     }
     void load()
-  }, [activeSessionId, buyerState, token])
+  }, [activeSessionId, buyerState])
 
   const startCamera = async () => {
     if (streamRef.current) return
@@ -498,7 +496,7 @@ export default function PosBuyer() {
         createKey: () => globalThis.crypto?.randomUUID?.() ?? `idem_${Date.now()}_${Math.random().toString(16).slice(2)}`,
       })
       lastFaceScanRef.current = attempt
-      await faceScan(activeSessionId, token, captured.dataUrl, attempt.idempotencyKey)
+      await faceScan(activeSessionId, captured.dataUrl, attempt.idempotencyKey)
       setScanState("sent")
     } catch (e) {
       setScanState("error")
@@ -520,7 +518,7 @@ export default function PosBuyer() {
     setRedeemStep("waiting")
     setRewardStatus("sending")
     try {
-      await redeemSelect(activeSessionId, { reward_id: rewardId }, token, request.idempotencyKey)
+      await redeemSelect(activeSessionId, { reward_id: rewardId }, request.idempotencyKey)
       setRewardStatus("awaiting_sse")
     } catch (e) {
       markRewardRequestStatus(rewardRequestBySessionRef.current, activeSessionId, "error")
@@ -543,7 +541,7 @@ export default function PosBuyer() {
       if (!shouldSend) return
       setSelectedMode(mode)
       setModeStatus("sending")
-      await setMode(activeSessionId, { mode }, token, request.idempotencyKey)
+      await setMode(activeSessionId, { mode }, request.idempotencyKey)
       setModeStatus("awaiting_sse")
     } catch (e) {
       markModeRequestStatus(modeRequestBySessionRef.current, activeSessionId, "error")
@@ -585,7 +583,6 @@ export default function PosBuyer() {
             </div>
           </div>
 
-          {!token && <IonText color="danger">Falta VITE_TERMINAL_TOKEN</IonText>}
 
           <div className={styles.main}>
             <AnimatePresence mode="wait">

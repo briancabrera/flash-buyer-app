@@ -4,9 +4,6 @@ import {
   IonCard,
   IonCardContent,
   IonContent,
-  IonInput,
-  IonItem,
-  IonLabel,
   IonList,
   IonPage,
   IonText,
@@ -51,7 +48,6 @@ export default function PosDebug() {
   const router = useIonRouter()
   const sse = useTerminalSse()
 
-  const [token, setToken] = useState<string>(import.meta.env.VITE_TERMINAL_TOKEN ?? "")
   const [scanState, setScanState] = useState<"idle" | "scanning" | "sending" | "awaiting_sse" | "verified" | "error">(
     "idle",
   )
@@ -125,7 +121,7 @@ export default function PosDebug() {
             kind: "request",
             message: `POST /pos/sessions/${currentSessionId}/face-scan idem=${idempotencyKey}`,
           })
-          const res = await faceScan(currentSessionId, token, payload.dataUrl, idempotencyKey)
+          const res = await faceScan(currentSessionId, payload.dataUrl, idempotencyKey)
           pushLog({
             ts: Date.now(),
             kind: "response",
@@ -156,7 +152,7 @@ export default function PosDebug() {
 
   const onStartListening = () => {
     pushLog({ ts: Date.now(), kind: "request", message: "Start Listening (terminal SSE)" })
-    startTerminalSse(token)
+    startTerminalSse()
   }
 
   const onStopListening = () => {
@@ -228,7 +224,7 @@ export default function PosDebug() {
       setRewardStatus("loading")
       try {
         pushLog({ ts: Date.now(), kind: "request", message: "GET /pos/rewards" })
-        const res = await listRewardsWithMeta(token, sse.activeSessionId ?? undefined)
+        const res = await listRewardsWithMeta(sse.activeSessionId ?? undefined)
         rewardsBySessionRef.current.set(sse.activeSessionId as string, res.items)
         setRewards(res.items)
         setRewardStatus("ready")
@@ -251,7 +247,7 @@ export default function PosDebug() {
       }
     }
     void load()
-  }, [sse.activeSessionId, sessionMode, sessionStatus, token])
+  }, [sse.activeSessionId, sessionMode, sessionStatus])
 
   const onSelectReward = async () => {
     if (!sse.activeSessionId) {
@@ -288,7 +284,7 @@ export default function PosDebug() {
         message: `POST /pos/sessions/${sse.activeSessionId}/reward reward_id=${selectedRewardId} idem=${request.idempotencyKey}`,
       })
       setRewardStatus("sending")
-      const res = await redeemSelect(sse.activeSessionId, { reward_id: selectedRewardId }, token, request.idempotencyKey)
+      const res = await redeemSelect(sse.activeSessionId, { reward_id: selectedRewardId }, request.idempotencyKey)
       pushLog({
         ts: Date.now(),
         kind: "response",
@@ -318,13 +314,6 @@ export default function PosDebug() {
 
           <IonCard>
             <IonCardContent>
-              <div className={styles.row}>
-                <IonItem lines="none">
-                  <IonLabel position="stacked">Terminal token (Bearer)</IonLabel>
-                  <IonInput value={token} onIonInput={(e) => setToken(String(e.detail.value ?? ""))} />
-                </IonItem>
-              </div>
-
               <div className={styles.row}>
                 <IonButton onClick={onStartListening}>Start Listening</IonButton>
                 <IonButton color="medium" onClick={onStopListening}>

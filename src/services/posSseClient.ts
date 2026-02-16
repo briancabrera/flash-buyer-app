@@ -34,7 +34,7 @@ export type TerminalSseHandlers = {
 
 export type PosSseClientOptions = {
   baseUrl: string
-  createTicket?: (token: string) => Promise<{ ticket: string; expiresAtMs: number }>
+  createTicket?: () => Promise<{ ticket: string; expiresAtMs: number }>
   eventSourceFactory?: (url: string) => EventSource
   fetchImpl?: typeof fetch
   now?: () => number
@@ -57,8 +57,8 @@ function safeJsonParse(raw: string): unknown {
   }
 }
 
-async function defaultCreateTicket(token: string) {
-  const { data } = await posGatewayClient.request<PosSseTicketResponse>("POST", "/pos/terminals/events-ticket", { token })
+async function defaultCreateTicket() {
+  const { data } = await posGatewayClient.request<PosSseTicketResponse>("POST", "/pos/terminals/events-ticket")
   const nowMs = Date.now()
   const expiresAtMs =
     data.expires_at ? Date.parse(data.expires_at) : nowMs + (data.expires_in_seconds ?? 120) * 1000
@@ -73,8 +73,8 @@ export function createPosSseClient(opts: PosSseClientOptions) {
   const rand = opts.rand ?? (() => Math.random())
   const baseUrl = opts.baseUrl
 
-  async function createTerminalEventsTicket(token: string) {
-    return await createTicket(token)
+  async function createTerminalEventsTicket() {
+    return await createTicket()
   }
 
   function openTerminalEvents(ticket: string) {
@@ -90,7 +90,7 @@ export function createPosSseClient(opts: PosSseClientOptions) {
    * - Reconnect: si se corta, reabre con el mismo ticket mientras sea válido.
    * - Si detecta 401 (ticket inválido/expirado), pide ticket nuevo y reconecta.
    */
-  function subscribeTerminalEvents(token: string, handlers: TerminalSseHandlers) {
+  function subscribeTerminalEvents(handlers: TerminalSseHandlers) {
     let stopped = false
     let es: EventSource | null = null
     let ticket: string | null = null
@@ -162,7 +162,7 @@ export function createPosSseClient(opts: PosSseClientOptions) {
         return
       }
 
-      const t = await createTerminalEventsTicket(token)
+        const t = await createTerminalEventsTicket()
       ticket = t.ticket
       expiresAtMs = t.expiresAtMs
       forceNewTicket = false

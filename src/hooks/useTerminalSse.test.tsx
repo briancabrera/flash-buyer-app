@@ -7,7 +7,7 @@ let capturedHandlers: any = null
 vi.mock("../services/posSseClient", () => {
   return {
     posSseClient: {
-      subscribeTerminalEvents: vi.fn((_token: string, handlers: any) => {
+      subscribeTerminalEvents: vi.fn((handlers: any) => {
         capturedHandlers = handlers
         return { getTicket: () => "t1", stop: vi.fn() }
       }),
@@ -51,7 +51,7 @@ describe("useTerminalSse (event-driven)", () => {
     })
   })
 
-  it("opens only one SSE connection per token", () => {
+  it("opens only one SSE connection", () => {
     render(
       <>
         <Probe />
@@ -60,15 +60,15 @@ describe("useTerminalSse (event-driven)", () => {
     )
 
     act(() => {
-      startTerminalSse("tok")
-      startTerminalSse("tok")
+      startTerminalSse()
+      startTerminalSse()
     })
 
     expect((posSseClient.subscribeTerminalEvents as any).mock.calls.length).toBe(1)
 
     act(() => {
       stopTerminalSse()
-      startTerminalSse("tok")
+      startTerminalSse()
     })
     expect((posSseClient.subscribeTerminalEvents as any).mock.calls.length).toBe(2)
 
@@ -80,7 +80,7 @@ describe("useTerminalSse (event-driven)", () => {
   it("terminal_state does not change activeSession; current_session does", () => {
     render(<Probe />)
     act(() => {
-      startTerminalSse("tok")
+      startTerminalSse()
     })
 
     expect(screen.getByTestId("activeSessionId").textContent).toBe("")
@@ -98,7 +98,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("current_session can clear activeSession with session=null", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
@@ -109,7 +109,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("session_created replaces activeSession when a new session is created (session switch)", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
@@ -120,7 +120,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("session_updated updates the active snapshot", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeStatus").textContent).toBe("WAITING_FACE")
@@ -132,7 +132,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("session_updated does NOT overwrite activeSession if it targets another session (late event)", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
@@ -145,7 +145,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("session_closed clears activeSession only when session_id matches (and ignores others)", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
@@ -159,7 +159,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("captures late CANCELLED session_updated after session_closed via lastSessionEnd (no activeSession resurrection)", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
@@ -175,7 +175,7 @@ describe("useTerminalSse (event-driven)", () => {
 
   it("reconnection: after reconnect status, current_session can bootstrap activeSession again", () => {
     render(<Probe />)
-    act(() => startTerminalSse("tok"))
+    act(() => startTerminalSse())
 
     emitEvent("current_session", { session: { session_id: "s1", status: "WAITING_FACE" } })
     expect(screen.getByTestId("activeSessionId").textContent).toBe("s1")
