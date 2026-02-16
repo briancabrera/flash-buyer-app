@@ -32,11 +32,11 @@ describe("posFaceScanClient", () => {
 
     const client = createPosFaceScanClient({ baseUrl: "http://gw", fetchImpl: fetchMock as any })
 
-    await expect(client.faceScan("sess_1", "data:image/jpeg;base64,aaa", "idem-2")).rejects.toMatchObject<Partial<PosApiError>>({
+    await expect(client.faceScan("sess_1", "data:image/jpeg;base64,aaa", "idem-2")).rejects.toMatchObject({
       name: "PosApiError",
       status: 504,
       code: "BIOMETRIC_TIMEOUT",
       requestId: "req-99",
-    })
+    } satisfies Partial<PosApiError>)
   })
 })
