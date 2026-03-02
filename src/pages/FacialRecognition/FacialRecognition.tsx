@@ -10,15 +10,12 @@ import {
 } from "@ionic/react";
 import { useIonRouter } from "@ionic/react";
 import { useLocation } from "react-router";
-import { motion } from "framer-motion";
-import { fetchCurrentPayment } from "../../services/payment.service";
-import { usePayment } from "../../context/PaymentContext";
 import { captureFrameFromVideo } from "../../utils/captureFrame";
 import { clearFaceCaptureCallbacks, getFaceCaptureCallbacks, type FaceCaptureCallbacks } from "../../utils/faceCaptureBridge";
 import { FaceCaptureView } from "../../components/FaceCaptureView/FaceCaptureView";
 import styles from "./FacialRecognition.module.scss";
 
-type Phase = "boot" | "scanning" | "success";
+type Phase = "boot" | "scanning";
 
 const FacialRecognition: React.FC = () => {
   const router = useIonRouter();
@@ -26,12 +23,7 @@ const FacialRecognition: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const toSuccessRef = useRef<number | null>(null);
-  const toRouteRef = useRef<number | null>(null);
-  const hasNavigatedRef = useRef(false);
   const isActiveRef = useRef(false);
-
-  const { setPayment } = usePayment();
 
   const [phase, setPhase] = useState<Phase>("boot");
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -50,8 +42,7 @@ const FacialRecognition: React.FC = () => {
   const autoCaptureTimerRef = useRef<number | null>(null);
 
   const clearAllTimers = () => {
-    if (toSuccessRef.current) { window.clearTimeout(toSuccessRef.current); toSuccessRef.current = null; }
-    if (toRouteRef.current)   { window.clearTimeout(toRouteRef.current);   toRouteRef.current = null; }
+    // keep for symmetry: capture auto-timer is cleared elsewhere
   };
 
   const stopCamera = () => {
@@ -71,19 +62,6 @@ const FacialRecognition: React.FC = () => {
     }
   };
 
-  const handleFaceOk = async () => {
-    if (hasNavigatedRef.current || !isActiveRef.current) return;
-    hasNavigatedRef.current = true;
-    try {
-      const payment = await fetchCurrentPayment();
-      setPayment(payment);
-      router.push(payment.pin_required ? "/payment-pin" : "/select-payment-method", "forward");
-    } catch (e) {
-      console.error(e);
-      // TODO: toast / fallback
-    }
-  };
-
   const handleCapture = () => {
     if (!isActiveRef.current) return;
     const v = videoRef.current;
@@ -91,7 +69,7 @@ const FacialRecognition: React.FC = () => {
     try {
       setCaptureError(null);
       if (!captureCallbacksRef.current) {
-        setCaptureError("No capture callbacks found. Please retry from PosDebug.");
+        setCaptureError("Missing capture callbacks. Please retry.")
         return;
       }
       const captured = captureFrameFromVideo(v, {
@@ -108,7 +86,7 @@ const FacialRecognition: React.FC = () => {
       });
       clearFaceCaptureCallbacks();
       captureCallbacksRef.current = null;
-      router.push("/pos-debug", "back");
+      router.goBack();
     } catch (err) {
       setCaptureError(String(err));
     }
@@ -118,7 +96,7 @@ const FacialRecognition: React.FC = () => {
     captureCallbacksRef.current?.onCancel?.();
     clearFaceCaptureCallbacks();
     captureCallbacksRef.current = null;
-    router.push("/pos-debug", "back");
+    router.goBack();
   };
 
   // ---------- lifecycle: ENTER ----------
@@ -126,7 +104,6 @@ const FacialRecognition: React.FC = () => {
   useIonViewWillEnter(() => {
     // Reset TOTAL antes de mostrar la vista
     isActiveRef.current = true;
-    hasNavigatedRef.current = false;
     setPhase("boot");
     setIsCameraReady(false);
     setCaptureError(null);
@@ -156,18 +133,6 @@ const FacialRecognition: React.FC = () => {
             if (!isActiveRef.current) return;
             setIsCameraReady(true);
             setPhase("scanning");
-            if (!isCaptureMode) {
-              // 3s de escaneo → éxito
-              toSuccessRef.current = window.setTimeout(() => {
-                if (!isActiveRef.current) return;
-                setPhase("success");
-                toRouteRef.current = window.setTimeout(() => {
-                  if (!isActiveRef.current) return;
-                  stopCamera();
-                  handleFaceOk();
-                }, 1200);
-              }, 3000);
-            }
           };
           v.addEventListener("canplay", onCanPlay, { once: true });
           v.play?.().catch(() => {});
@@ -177,16 +142,6 @@ const FacialRecognition: React.FC = () => {
         if (!isActiveRef.current) return;
         setIsCameraReady(false);
         setPhase("scanning");
-        if (!isCaptureMode) {
-          toSuccessRef.current = window.setTimeout(() => {
-            if (!isActiveRef.current) return;
-            setPhase("success");
-            toRouteRef.current = window.setTimeout(() => {
-              if (!isActiveRef.current) return;
-              handleFaceOk();
-            }, 1200);
-          }, 3000);
-        }
       }
     };
 
@@ -244,64 +199,13 @@ const FacialRecognition: React.FC = () => {
     };
   }, [autoCapture, isCameraReady, isCaptureMode]);
 
-  const overlayOpacity = !isCameraReady ? 0 : phase === "success" ? 0 : 1;
+  const overlayOpacity = !isCameraReady ? 0 : 1;
 
   return (
     <IonPage className={styles.facialRecognitionPage}>
       <IonContent fullscreen>
         <div className={styles.container}>
           <FaceCaptureView videoRef={videoRef} overlayOpacity={overlayOpacity} isScanning={phase === "scanning"} />
-
-          {phase === "success" && (
-            <motion.div
-              className={styles.successWrap}
-              role="status"
-              aria-live="polite"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-            >
-              <motion.svg
-                className={styles.checkmark}
-                viewBox="0 0 52 52"
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              >
-                {/* Círculo base estático para asegurar 360° */}
-                <circle
-                  className={styles.checkmarkCircleBase}
-                  cx="26"
-                  cy="26"
-                  r="24"
-                  fill="none"
-                />
-
-                {/* Círculo animado (sin gap) */}
-                <motion.circle
-                  className={styles.checkmarkCircle}
-                  cx="26"
-                  cy="26"
-                  r="24"
-                  fill="none"
-                  strokeLinecap="butt"          // ⬅️ clave para que cierre sin hueco
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                />
-
-                {/* Check */}
-                <motion.path
-                  className={styles.checkmarkCheck}
-                  fill="none"
-                  d="M14 27 l8 8 l16 -16"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.5, ease: "easeOut", delay: 0.25 }}
-                />
-              </motion.svg>
-            </motion.div>
-          )}
 
           {isCaptureMode && (
             <div className={styles.captureControls}>
