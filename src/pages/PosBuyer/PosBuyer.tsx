@@ -781,7 +781,7 @@ export default function PosBuyer() {
                           <div className={styles.rewardIcon} aria-hidden="true">
                             <div className={styles.rewardIconText}>$</div>
                           </div>
-                          <div className={styles.modeTileLabel}>Compra</div>
+                          <div className={styles.modeTileLabel}>Sumar puntos</div>
                         </button>
 
                         <button
@@ -793,7 +793,7 @@ export default function PosBuyer() {
                           <div className={styles.rewardIcon} aria-hidden="true">
                             <div className={styles.rewardIconText}>R</div>
                           </div>
-                          <div className={styles.modeTileLabel}>Canje</div>
+                          <div className={styles.modeTileLabel}>Canjear recompensas</div>
                         </button>
                       </div>
 
